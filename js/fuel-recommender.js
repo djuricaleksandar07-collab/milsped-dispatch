@@ -59,7 +59,7 @@
 
   /* Convert $/gal to $/mi given MPG. */
   function pricePerMi(pricePerGal, mpg) {
-    mpg = mpg || (global.CalcCore ? CalcCore.getMPG() : 6.32);
+    mpg = mpg || (global.CalcCore ? CalcCore.getMPG() : 6.0);
     if (!pricePerGal || !mpg) return null;
     return pricePerGal / mpg;
   }
@@ -72,13 +72,13 @@
   }
 
   /* Top N najjeftinijih Pilot pumpi u koridoru pickup→delivery.
-     opts: { maxOffsetMi: 50, topN: 3, mpg: 6.32, galPerStop: 150 }
+     opts: { maxOffsetMi: 50, topN: 3, mpg: 6.0, galPerStop: 150 }
   */
   function recommendForLeg(puZip, delZip, opts) {
     opts = opts || {};
     const maxOff = opts.maxOffsetMi || 50;
     const topN = opts.topN || 3;
-    const mpg = opts.mpg || (global.CalcCore ? CalcCore.getMPG() : 6.32);
+    const mpg = opts.mpg || (global.CalcCore ? CalcCore.getMPG() : 6.0);
     const galPerStop = opts.galPerStop || 150;
 
     if (!global.ZipDistance) return null;
@@ -93,6 +93,11 @@
     const avgCorridor = withPrice.reduce((a, b) => a + b.your_price, 0) / withPrice.length;
     const cheapest = top[0];
 
+    // Prosek 3 najjeftinijih (ili koliko ih ima) — koristi se za realniji
+    // "expected" fuel cost umesto same najjeftinije (dispečer ne stigne uvek).
+    const top3 = withPrice.slice(0, Math.min(3, withPrice.length));
+    const top3Avg = top3.reduce((a, b) => a + b.your_price, 0) / top3.length;
+
     const savingsPerGal = avgCorridor - cheapest.your_price;
     const estFuelPm = cheapest.your_price / mpg;
     const estSavings = savingsPerGal * galPerStop;
@@ -101,6 +106,7 @@
       stations: top,
       total_in_corridor: withPrice.length,
       avgCorridorPrice: +avgCorridor.toFixed(4),
+      top3AvgPrice: +top3Avg.toFixed(4),
       cheapest,
       cheapest_savings_per_gal: +savingsPerGal.toFixed(4),
       estimated_fuel_pm: +estFuelPm.toFixed(4),

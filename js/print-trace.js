@@ -57,6 +57,7 @@
         printed_at: ts,
         calc_id: c.id,
         dispatcher: metadata.dispatcher || "",
+        selected: !!c.selected,
         comment: (c.comment || "").trim(),
         period_days: metadata.period_days || null,
         fuel_snapshot_date: metadata.fuel_snapshot_date || null,
@@ -124,8 +125,9 @@
       const cmDay = e.cm_per_day || 0;
       const commentEsc = (e.comment || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\n/g,"<br>");
       const commentRow = e.comment ? "<div class='comment-row'><b>Comment:</b> " + commentEsc + "</div>" : "";
-      return "<div class='calc-section'>" +
-        "<div class='calc-title'>Load #" + e.calc_id + " &nbsp;·&nbsp; " + e.lanes + "</div>" +
+      const dispatchBadge = e.selected ? "<span class='dispatch-badge'>&#10003; DISPATCHED</span>" : "";
+      return "<div class='calc-section" + (e.selected ? " selected-load" : "") + "'>" +
+        "<div class='calc-title'>Load #" + e.calc_id + " &nbsp;·&nbsp; " + e.lanes + " " + dispatchBadge + "</div>" +
         "<table class='leg-table'>" +
         "<thead><tr><th>#</th><th>PU</th><th>DEL</th><th>Load mi</th><th>Empty mi</th><th>RPM</th><th>Gross</th><th>Fuel/mi</th><th>Driver/mi</th><th>Tolls/mi</th></tr></thead>" +
         "<tbody>" + legRows + "</tbody></table>" +
@@ -160,6 +162,9 @@
       ".calc-totals span{color:#5a6e85}" +
       ".comment-row{margin-top:10px;padding:8px 12px;background:#f4f8ff;border-left:3px solid #3b5bdb;border-radius:4px;font-size:11px;line-height:1.5}" +
       ".comment-row b{color:#3b5bdb}" +
+      ".calc-section.selected-load{background:#f0f9f4;border-left:4px solid #1a8a60;padding-left:12px;border-radius:5px}" +
+      ".calc-section.selected-load .calc-title{background:#1a8a60;color:#fff}" +
+      ".dispatch-badge{display:inline-block;background:#fff;color:#1a8a60;font-size:10px;font-weight:700;letter-spacing:.6px;padding:3px 9px;border-radius:10px;margin-left:8px;vertical-align:middle}" +
       ".footer{margin-top:24px;padding-top:10px;border-top:1px solid #dce1ea;font-size:10px;color:#5a6e85;display:flex;justify-content:space-between}" +
       "@media print{body{margin:12px}.calc-section{page-break-inside:avoid}}" +
       "</style></head><body>" +

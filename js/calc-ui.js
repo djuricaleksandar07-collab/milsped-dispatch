@@ -10,7 +10,7 @@
   // ── State ──────────────────────────────────────────────────────────
   let calcs = [];
   let idCtr = 0;
-  let metric = "cm_pt";
+  let metric = "cm_day";
   let hlMap = null;
   let activeAutocomplete = null;  // koji input je trenutno otvoren
 
@@ -256,7 +256,7 @@
   }
 
   // ── expose internals to next file (calc-ui-2.js) ──────────────────
-  const _state = { idCtr: 0, metric: "cm_pt", hlMap: null, activeAutocomplete: null };
+  const _state = { idCtr: 0, metric: "cm_day", hlMap: null, activeAutocomplete: null };
   global._CalcUI_internals = {
     state: _state,
     setIdCtr(v) { idCtr = v; _state.idCtr = v; },

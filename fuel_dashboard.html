@@ -5,6 +5,49 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Fuel Dashboard — Milsped LLC</title>
+<script>
+// Password gate (same as dispatch_calculator.html) - shares sessionStorage so
+// once unlocked in this browser tab, both pages stay unlocked.
+(function(){
+  var PASSWORD = "M2026";
+  var SESSION_KEY = "dispatch_unlocked";
+  if (sessionStorage.getItem(SESSION_KEY) === "yes") return;
+  document.documentElement.style.visibility = "hidden";
+  document.addEventListener("DOMContentLoaded", function(){
+    if (sessionStorage.getItem(SESSION_KEY) === "yes") {
+      document.documentElement.style.visibility = "visible";
+      return;
+    }
+    var gate = document.createElement("div");
+    gate.style.cssText = "position:fixed;inset:0;background:#0b1220;color:#e8eef7;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,sans-serif;visibility:visible";
+    gate.innerHTML =
+      "<div style='background:#162032;padding:36px 42px;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.4);max-width:380px;width:90%;text-align:center'>" +
+        "<div style='font-size:22px;font-weight:600;margin-bottom:6px'>Fuel Dashboard</div>" +
+        "<div style='font-size:13px;color:#8aa0bb;margin-bottom:22px'>Internal tool &middot; Milsped LLC</div>" +
+        "<input id='pwd-input' type='password' placeholder='Password' autocomplete='off' style='width:100%;padding:12px 14px;border:1px solid #2a3a52;background:#0b1220;color:#e8eef7;border-radius:8px;font-size:14px;outline:none;box-sizing:border-box'>" +
+        "<div id='pwd-err' style='color:#f87171;font-size:12px;height:16px;margin-top:8px;visibility:hidden'>Wrong password</div>" +
+        "<button id='pwd-btn' style='width:100%;margin-top:14px;padding:12px;border:none;border-radius:8px;background:#1a8a60;color:#fff;font-size:14px;font-weight:600;cursor:pointer'>Unlock</button>" +
+      "</div>";
+    document.body.appendChild(gate);
+    document.documentElement.style.visibility = "visible";
+    var inp = document.getElementById("pwd-input");
+    var btn = document.getElementById("pwd-btn");
+    var err = document.getElementById("pwd-err");
+    function tryUnlock(){
+      if (inp.value === PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, "yes");
+        gate.remove();
+      } else {
+        err.style.visibility = "visible";
+        inp.select();
+      }
+    }
+    btn.addEventListener("click", tryUnlock);
+    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") tryUnlock(); });
+    setTimeout(function(){ inp.focus(); }, 50);
+  });
+})();
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}

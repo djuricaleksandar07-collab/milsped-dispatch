@@ -143,23 +143,18 @@
         '<span class="fuel-rec-meta">' + snap + '</span></div>' +
         '<div class="fuel-rec-empty">No Pilot stations within &plusmn;50mi of route.</div></div>';
     }
-    const appliedSite = l.fuel_pump_site;
     const items = rec.stations.map(function (s, i) {
-      const isApplied = appliedSite && s.site === appliedSite;
-      const badge = isApplied
-        ? '<span class="fuel-applied-badge">&#10003; auto-applied</span>'
-        : (i === 0 ? '<span class="fuel-applied-badge" style="background:transparent;color:var(--mu)">cheapest</span>' : '');
       return '<div class="fuel-rec-item' + (i === 0 ? " best" : "") + '">' +
         '<span class="fuel-rec-site">#' + s.site + '</span>' +
         '<span class="fuel-rec-loc">' + (s.city || "-") + ', ' + (s.state || "-") + '</span>' +
         '<span class="fuel-rec-price">$' + s.your_price.toFixed(4) + '</span>' +
         '<span class="fuel-rec-detail">' + s.detour_mi + 'mi &middot; ' + s.position_pct + '%</span>' +
-        badge +
         '</div>';
     }).join("");
+    const avgTxt = (rec.top3AvgPrice != null) ? '$' + rec.top3AvgPrice.toFixed(4) + '/gal' : "n/a";
     return '<div class="fuel-rec"><div class="fuel-rec-hdr">' +
       '<span class="fuel-rec-title">Pilot fuel stops in corridor (' + rec.total_in_corridor + ')</span>' +
-      '<span class="fuel-rec-meta">Snapshot: ' + snap + ' &middot; cheapest auto-applied</span></div>' +
+      '<span class="fuel-rec-meta">Snapshot: ' + snap + ' &middot; avg of top 3 applied: ' + avgTxt + '</span></div>' +
       '<div class="fuel-rec-list">' + items + '</div></div>';
   }
 
@@ -448,10 +443,18 @@
       ' oninput="CalcUI.onCommentChange(' + c.id + ',this.value)">' + commentVal + '</textarea>' +
       '</div>';
 
-    return '<div class="calc-card' + (below ? ' below' : win ? ' winner' : lose ? ' loser' : '') + '" id="cc-' + c.id + '" data-id="' + c.id + '">' +
+    // Dispatcher selected radio (only one load can be selected as "to dispatch")
+    const isSelected = !!c.selected;
+    const selectedRadio = '<label class="dispatch-radio" title="Mark this load as the one to dispatch (appears in print)">' +
+      '<input type="radio" name="dispatch-selected" ' + (isSelected ? 'checked' : '') +
+      ' onchange="CalcUI.onSelectedToggle(' + c.id + ')">' +
+      '<span class="dispatch-radio-lbl">' + (isSelected ? '&#10003; Dispatched' : 'Mark as dispatched') + '</span>' +
+      '</label>';
+
+    return '<div class="calc-card' + (below ? ' below' : win ? ' winner' : lose ? ' loser' : '') + (isSelected ? ' selected' : '') + '" id="cc-' + c.id + '" data-id="' + c.id + '">' +
       '<div class="cc-hdr">' +
       '<span class="cc-title" style="color:' + col + '">Load ' + c.id + '</span>' +
-      '<div style="display:flex;align-items:center;gap:6px">' + belowBadge + closeBtn + '</div>' +
+      '<div style="display:flex;align-items:center;gap:8px">' + selectedRadio + belowBadge + closeBtn + '</div>' +
       '</div>' +
       '<div class="cc-body">' +
       legBlocks +
@@ -468,7 +471,7 @@
     I.state.idCtr = (I.state.idCtr || 0) + 1;
     I.setIdCtr(I.state.idCtr);
     const id = I.state.idCtr;
-    I.getCalcs().push({ id: id, legs: [CalcCore.newLeg(id, 0)], comment: "" });
+    I.getCalcs().push({ id: id, legs: [CalcCore.newLeg(id, 0)], comment: "", selected: false });
     render();
   }
 
@@ -478,6 +481,18 @@
     // Update trace count without full render (preserves focus on textarea)
     const tc = document.getElementById("trace-count");
     if (tc && global.PrintTrace) tc.innerHTML = "Trace: <b>" + PrintTrace.getCount() + "</b>";
+  }
+
+  function onSelectedToggle(cId) {
+    // Radio behavior: only one load selected at a time.
+    // Clicking the same load again deselects (toggle off).
+    const arr = I.getCalcs();
+    const target = arr.find(function (x) { return x.id === cId; });
+    if (!target) return;
+    const wasSelected = !!target.selected;
+    arr.forEach(function (c) { c.selected = false; });
+    if (!wasSelected) target.selected = true;
+    render();
   }
   function removeCalc(id) {
     const arr = I.getCalcs();
@@ -570,6 +585,7 @@
     onLegMiles: onLegMiles, onLegRpm: onLegRpm, onLegGross: onLegGross, onLegField: onLegField, onLegGal: onLegGal, onLegMpg: onLegMpg,
     applyFuelRec: applyFuelRec, addLegFromRec: addLegFromRec,
     onCommentChange: onCommentChange,
+    onSelectedToggle: onSelectedToggle,
     printAll: printAll,
     init: function () { I.tooltip.initTooltip(); },
   };

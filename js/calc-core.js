@@ -32,7 +32,7 @@
   // ────────────────────────────────────────────────────────────────────
   let FLEET = null;       // flota-wide proseci
   let LANES = null;       // { "AL - GA": {...}, ... }
-  let DEFAULT_MPG = 6.32;
+  let DEFAULT_MPG = 6.0;
   let INSURANCE_PM = 0.105; // fiksno
   let MILES_PER_DAY = 400;  // za CM/day extrapolaciju (jedan vozac)
 
@@ -114,20 +114,22 @@
     if (distanceMi != null && distanceMi > 0) {
       leg.miles_loaded = +distanceMi.toFixed(0);
     }
-    // Auto-apply cheapest Pilot pump in corridor (if FuelRecommender available)
+    // Auto-apply: prosek 3 najjeftinijih Pilot pumpi u koridoru
+    // (realnija procena fuel troška vs. samo najjeftinija - dispečer ne stigne uvek)
     if (typeof globalThis.FuelRecommender !== "undefined" && globalThis.FuelRecommender.recommendForLeg) {
       try {
         const rec = globalThis.FuelRecommender.recommendForLeg(leg.pu_zip, leg.del_zip, {
-          topN: 1, mpg: leg.mpg || DEFAULT_MPG,
+          topN: 3, mpg: leg.mpg || DEFAULT_MPG,
         });
-        if (rec && rec.cheapest && rec.cheapest.your_price > 0) {
-          leg.fuel = rec.cheapest.your_price / (leg.mpg || DEFAULT_MPG);
-          leg.fuel_source = "live_cheapest_pump";
-          leg.fuel_pump_site = rec.cheapest.site;
-          leg.fuel_pump_price = rec.cheapest.your_price;
+        if (rec && rec.top3AvgPrice && rec.top3AvgPrice > 0) {
+          leg.fuel = rec.top3AvgPrice / (leg.mpg || DEFAULT_MPG);
+          leg.fuel_source = "live_top3_avg";
+          leg.fuel_avg_price = rec.top3AvgPrice;
+          // Sačuvaj broj stanica koje su učestvovale u proseku (za debug/trace)
+          leg.fuel_top3_count = Math.min(3, (rec.stations || []).length);
         }
       } catch (e) {
-        // FuelRecommender not loaded or zips not valid - fall back to lane.fuel_pm
+        // FuelRecommender nije ucitan ili ZIP nije validan - pada na lane.fuel_pm
       }
     }
     // sync gross from rpm (RPM × total miles)

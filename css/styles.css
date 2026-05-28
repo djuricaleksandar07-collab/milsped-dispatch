@@ -272,6 +272,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 /* Auto-applied fuel badge */
 .fuel-applied-badge{font-size:9px;font-weight:700;color:var(--gd);background:rgba(26,138,96,.12);padding:3px 7px;border-radius:10px;font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:.3px}
 
+/* Dispatch "selected" radio (in calc card header) */
+.dispatch-radio{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:3px 9px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:all .15s;user-select:none}
+.dispatch-radio:hover{border-color:var(--tl);background:rgba(85,197,179,.06)}
+.dispatch-radio input[type=radio]{margin:0;cursor:pointer;accent-color:var(--gd)}
+.dispatch-radio-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;font-family:'DM Mono',monospace;color:var(--mu)}
+.dispatch-radio input:checked + .dispatch-radio-lbl{color:var(--gd)}
+.calc-card.selected{box-shadow:0 0 0 2px var(--gd),0 6px 18px rgba(26,138,96,.15)!important;border-color:var(--gd)!important}
+.calc-card.selected .dispatch-radio{background:rgba(26,138,96,.10);border-color:var(--gd)}
+
 /* Dispatcher comment block (per-load) */
 .comment-block{margin-top:10px;padding:10px;background:rgba(85,197,179,.05);border:1px solid rgba(85,197,179,.20);border-radius:8px}
 .comment-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--tld);font-family:'DM Mono',monospace;margin-bottom:5px}

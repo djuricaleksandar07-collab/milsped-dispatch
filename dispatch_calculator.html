@@ -1,19 +1,63 @@
 <!DOCTYPE html>
-<html lang="sr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Kalkulator Dispečera v2 — Milsped LLC</title>
+<title>Dispatch Calculator</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/styles.css">
+<script>
+// Password gate - runs before any other script. Blocks rendering until correct
+// password is entered. SessionStorage remembers the unlock for this tab session.
+(function(){
+  var PASSWORD = "M2026";
+  var SESSION_KEY = "dispatch_unlocked";
+  if (sessionStorage.getItem(SESSION_KEY) === "yes") return;
+  // Hide content until unlocked; gate overlay added on DOMContentLoaded.
+  document.documentElement.style.visibility = "hidden";
+  document.addEventListener("DOMContentLoaded", function(){
+    if (sessionStorage.getItem(SESSION_KEY) === "yes") {
+      document.documentElement.style.visibility = "visible";
+      return;
+    }
+    var gate = document.createElement("div");
+    gate.style.cssText = "position:fixed;inset:0;background:#0b1220;color:#e8eef7;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Sans',system-ui,sans-serif;visibility:visible";
+    gate.innerHTML =
+      "<div style='background:#162032;padding:36px 42px;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,.4);max-width:380px;width:90%;text-align:center'>" +
+        "<div style='font-size:22px;font-weight:600;margin-bottom:6px'>Dispatch Calculator</div>" +
+        "<div style='font-size:13px;color:#8aa0bb;margin-bottom:22px'>Internal tool &middot; Milsped LLC</div>" +
+        "<input id='pwd-input' type='password' placeholder='Password' autocomplete='off' style='width:100%;padding:12px 14px;border:1px solid #2a3a52;background:#0b1220;color:#e8eef7;border-radius:8px;font-size:14px;font-family:inherit;outline:none;box-sizing:border-box'>" +
+        "<div id='pwd-err' style='color:#f87171;font-size:12px;height:16px;margin-top:8px;visibility:hidden'>Wrong password</div>" +
+        "<button id='pwd-btn' style='width:100%;margin-top:14px;padding:12px;border:none;border-radius:8px;background:#1a8a60;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit'>Unlock</button>" +
+      "</div>";
+    document.body.appendChild(gate);
+    document.documentElement.style.visibility = "visible";
+    var inp = document.getElementById("pwd-input");
+    var btn = document.getElementById("pwd-btn");
+    var err = document.getElementById("pwd-err");
+    function tryUnlock(){
+      if (inp.value === PASSWORD) {
+        sessionStorage.setItem(SESSION_KEY, "yes");
+        gate.remove();
+      } else {
+        err.style.visibility = "visible";
+        inp.select();
+      }
+    }
+    btn.addEventListener("click", tryUnlock);
+    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") tryUnlock(); });
+    setTimeout(function(){ inp.focus(); }, 50);
+  });
+})();
+</script>
 </head>
 <body>
 
 <!-- ── Loading overlay ─────────────────────────────────────────────── -->
 <div class="loading-overlay" id="loading-overlay">
   <div class="loading-spinner"></div>
-  <div class="loading-text" id="loading-text">Učitavam…</div>
+  <div class="loading-text" id="loading-text">Loading…</div>
 </div>
 
 <div class="wrap">
@@ -21,7 +65,7 @@
   <!-- ── Header ────────────────────────────────────────────────────── -->
   <header style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
     <div>
-      <h1>Dispatcher Calculator</h1>
+      <h1>Dispatch Calculator</h1>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <div class="badge-g">CD drivers</div>
@@ -75,10 +119,10 @@
     <div style="display:flex;align-items:center;gap:6px">
       <span style="font-size:11px;color:var(--mu)">Rank by:</span>
       <div class="rank-toggle">
-        <button id="rb-cm_pt"  class="on" onclick="CalcUI.setMetric('cm_pt')">CM/load</button>
-        <button id="rb-cm_day"      onclick="CalcUI.setMetric('cm_day')">CM/day</button>
-        <button id="rb-cm_pm"       onclick="CalcUI.setMetric('cm_pm')">CM/mi</button>
-        <button id="rb-cm_pct"      onclick="CalcUI.setMetric('cm_pct')">CM%</button>
+        <button id="rb-cm_pt"            onclick="CalcUI.setMetric('cm_pt')">CM/load</button>
+        <button id="rb-cm_day" class="on" onclick="CalcUI.setMetric('cm_day')">CM/day</button>
+        <button id="rb-cm_pm"             onclick="CalcUI.setMetric('cm_pm')">CM/mi</button>
+        <button id="rb-cm_pct"            onclick="CalcUI.setMetric('cm_pct')">CM%</button>
       </div>
     </div>
   </div>
