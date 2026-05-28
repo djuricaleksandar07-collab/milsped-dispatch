@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Fuel Dashboard — Milsped LLC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+.hdr{background:linear-gradient(135deg,#1e3a8a,#1e40af 60%,#1d4ed8);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #3b82f6}
+.hdr h1{font-size:18px;font-weight:800}.hdr h1 span{color:#93c5fd}
+.hdr a{color:#bfdbfe;text-decoration:none;font-size:12px;padding:4px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px;transition:background .15s}
+.hdr a:hover{background:rgba(255,255,255,.1)}
+.hdr-meta{font-size:11px;color:#93c5fd;text-align:right;line-height:1.6}
+.top{padding:10px 20px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;white-space:nowrap}
+.date-btn{padding:5px 12px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#94a3b8;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.date-btn:hover{border-color:#3b82f6;color:#93c5fd}
+.date-btn.active{background:rgba(59,130,246,.2);border-color:#3b82f6;color:#93c5fd}
+.date-sep{color:#334155;font-size:14px;padding:0 4px}
+.kpi-strip{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;padding:10px 20px;background:#1e293b;border-bottom:1px solid #334155}
+.kpi{background:#0f172a;border:1px solid #334155;border-radius:7px;padding:7px 9px}
+.kpi-lbl{font-size:8px;text-transform:uppercase;letter-spacing:.7px;color:#64748b;font-weight:600;margin-bottom:2px}
+.kpi-val{font-size:15px;font-weight:800}
+.kpi-val.green{color:#22c55e}.kpi-val.amber{color:#f59e0b}.kpi-val.blue{color:#3b82f6}.kpi-val.red{color:#ef4444}
+.kpi-sub{font-size:8px;color:#64748b;margin-top:1px}
+.content{display:grid;grid-template-columns:1fr 1fr;gap:0;flex:1;overflow:hidden}
+.panel{border-right:1px solid #334155;border-bottom:1px solid #334155;display:flex;flex-direction:column;overflow:hidden}
+.panel:nth-child(even){border-right:none}
+.panel-hdr{padding:10px 14px;background:#1e293b;border-bottom:1px solid #334155;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;display:flex;align-items:center;justify-content:space-between}
+.panel-body{flex:1;overflow:auto;padding:12px 14px}
+.panel-body::-webkit-scrollbar{width:3px}.panel-body::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.trend-wrap{position:relative;height:200px;overflow:hidden}
+.trend-svg{width:100%;height:100%}
+.day-list{display:flex;flex-direction:column;gap:4px}
+.day-row{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:6px;font-size:10px;cursor:default;transition:all .15s}
+.day-row:hover{border-color:#3b82f6}
+.day-date{font-weight:700;min-width:80px;color:#93c5fd}
+.day-sav{font-weight:800;min-width:60px;text-align:right}
+.day-bar-wrap{flex:1;height:10px;background:#1a2234;border-radius:3px;overflow:hidden}
+.day-bar{height:100%;border-radius:3px;transition:width .3s}
+.day-n{font-size:9px;color:#64748b;min-width:35px;text-align:right}
+.state-heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:4px}
+.state-cell{padding:6px 4px;border-radius:5px;text-align:center;font-size:9px;font-weight:700;cursor:default;transition:all .15s;border:1px solid transparent}
+.state-cell:hover{border-color:#3b82f6}
+.state-name{font-size:12px;font-weight:800;display:block;margin-bottom:1px}
+.rank-list{display:flex;flex-direction:column;gap:3px}
+.rank-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0f172a;border:1px solid #334155;border-radius:5px;font-size:10px}
+.rank-pos{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;flex-shrink:0;background:#334155;color:#94a3b8}
+.rank-pos.gold{background:#ffd700;color:#0f172a}
+.rank-pos.silver{background:#c0c0c0;color:#0f172a}
+.rank-pos.bronze{background:#cd7f32;color:#0f172a}
+.rank-name{flex:1;min-width:0}
+.rank-state{color:#64748b;font-size:9px}
+.rank-val{font-weight:800;color:#22c55e;text-align:right}
+.rank-cnt{font-size:9px;color:#64748b;text-align:right}
+.no-data{color:#475569;font-size:11px;text-align:center;padding:30px;line-height:1.7}
+.loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#0f172a;z-index:9999;transition:opacity .25s}
+.loading.hide{opacity:0;pointer-events:none}
+.spinner{width:32px;height:32px;border:3px solid #334155;border-top-color:#3b82f6;border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:#93c5fd;font-size:12px}
+.tier-strip{display:flex;gap:6px;padding:8px 20px;background:#1e293b;border-bottom:1px solid #334155;font-size:10px}
+.tier-pill{padding:3px 9px;border-radius:20px;font-weight:700}
+.tier-pill.high{background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3)}
+.tier-pill.mid{background:rgba(245,158,11,.15);color:#f59e0b;border:1px solid rgba(245,158,11,.3)}
+.tier-pill.low{background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3)}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Učitavam fuel snapshot...</div>
+</div>
+
+<div class="hdr">
+  <h1>⛽ <span>Milsped Freight</span> — Fuel History Dashboard</h1>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="hdr-meta">
+      <div>Account 760731 · CD vozači</div>
+      <div id="date-range-label">—</div>
+    </div>
+    <a href="dispatch_calculator.html">← Kalkulator</a>
+  </div>
+</div>
+
+<div class="top">
+  <span class="top-lbl">Period:</span>
+  <button class="date-btn" data-p="7" onclick="setPeriod(7)">7 dana</button>
+  <button class="date-btn" data-p="14" onclick="setPeriod(14)">14 dana</button>
+  <button class="date-btn" data-p="30" onclick="setPeriod(30)">30 dana</button>
+  <button class="date-btn active" data-p="0" onclick="setPeriod(0)">Sve dostupno</button>
+  <div class="date-sep">|</div>
+  <span class="top-lbl">Tier (po uštedi):</span>
+  <span class="tier-pill high">≥ $1.20</span>
+  <span class="tier-pill mid">$0.90–$1.19</span>
+  <span class="tier-pill low">&lt; $0.90</span>
+  <div style="margin-left:auto;font-size:10px;color:#64748b" id="footer-info"></div>
+</div>
+
+<div class="kpi-strip">
+  <div class="kpi"><div class="kpi-lbl">Dana podataka</div><div class="kpi-val blue" id="h-days">—</div><div class="kpi-sub">u periodu</div></div>
+  <div class="kpi"><div class="kpi-lbl">Ukupno obs.</div><div class="kpi-val" id="h-obs">—</div><div class="kpi-sub">stanica×dan</div></div>
+  <div class="kpi"><div class="kpi-lbl">Avg cena</div><div class="kpi-val amber" id="h-avg-price">—</div><div class="kpi-sub">$/gal</div></div>
+  <div class="kpi"><div class="kpi-lbl">Avg uštedina</div><div class="kpi-val green" id="h-avg-sav">—</div><div class="kpi-sub">$/gal</div></div>
+  <div class="kpi"><div class="kpi-lbl">Min cena</div><div class="kpi-val green" id="h-min">—</div><div class="kpi-sub">zabilježena</div></div>
+  <div class="kpi"><div class="kpi-lbl">Max cena</div><div class="kpi-val red" id="h-max">—</div><div class="kpi-sub">zabilježena</div></div>
+  <div class="kpi"><div class="kpi-lbl">Trend</div><div class="kpi-val" id="h-trend">—</div><div class="kpi-sub">recent vs prev</div></div>
+  <div class="kpi"><div class="kpi-lbl">Pokrivene države</div><div class="kpi-val blue" id="h-states">—</div><div class="kpi-sub">u periodu</div></div>
+</div>
+
+<div class="content">
+  <div class="panel">
+    <div class="panel-hdr">
+      <span>📈 Trend avg cene po galonu</span>
+      <span style="font-size:9px;color:#475569;text-transform:none;font-weight:400">Milsped (Your Price) vs Retail</span>
+    </div>
+    <div class="panel-body">
+      <div class="trend-wrap"><svg class="trend-svg" id="trend-svg"></svg></div>
+      <div style="font-size:10px;color:#64748b;margin-top:10px;line-height:1.6">
+        <span style="color:#f59e0b">━</span> Milsped Your Price &nbsp;·&nbsp;
+        <span style="color:#475569">- - -</span> Retail (avg)
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <span>📅 Dnevni pregled</span>
+      <span id="day-count-label" style="font-size:9px;color:#475569;text-transform:none;font-weight:400"></span>
+    </div>
+    <div class="panel-body">
+      <div class="day-list" id="day-list"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <span>🗺️ Avg uštedina po državi</span>
+      <span style="font-size:9px;color:#475569;text-transform:none;font-weight:400">u izabranom periodu</span>
+    </div>
+    <div class="panel-body">
+      <div class="state-heat" id="state-heat"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-hdr">
+      <span>🏆 Top 20 stanica (avg uštedina)</span>
+    </div>
+    <div class="panel-body">
+      <div class="rank-list" id="rank-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Inline data bundle - opens without Python/HTTP server. -->
+<script src="data/bundle.js" onerror="console.log('bundle.js not found - using fetch fallback')"></script>
+
+<script>
+"use strict";
+let DATA = null;
+let activePeriod = 0;  // 0 = all
+
+(async function init() {
+  const setText = s => { const e = document.getElementById("loading-text"); if (e) e.textContent = s; };
+  try {
+    if (window.__BUNDLE__ && window.__BUNDLE__.fuel_prices) {
+      setText("Loading bundled fuel data...");
+      DATA = window.__BUNDLE__.fuel_prices;
+    } else {
+      setText("Loading fuel_prices.json...");
+      const res = await fetch("data/fuel_prices.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      DATA = await res.json();
+    }
+    if (!DATA || !DATA.history_stations) {
+      throw new Error("fuel_prices.json missing or in old format. Run `python etl/ingest_fuel.py` to regenerate.");
+    }
+    setText("Rendering...");
+    render();
+    setTimeout(() => document.getElementById("loading").classList.add("hide"), 200);
+  } catch (e) {
+    setText("Greška: " + e.message);
+  }
+})();
+
+function setPeriod(n) {
+  activePeriod = n;
+  document.querySelectorAll(".date-btn").forEach(b => b.classList.toggle("active", parseInt(b.dataset.p) === n));
+  render();
+}
+
+function getFilteredDays() {
+  const dates = DATA.history_dates;
+  if (!dates || !dates.length) return [];
+  if (activePeriod === 0) return dates.slice();
+  return dates.slice(-activePeriod);
+}
+
+function render() {
+  const days = getFilteredDays();
+  if (!days.length) return;
+
+  const allStations = days.flatMap(d => DATA.history_stations[d] || []);
+  const n = allStations.length;
+
+  const validPrices = allStations.filter(s => typeof s.your_price === "number" && s.your_price > 0);
+  const validSav = allStations.filter(s => typeof s.savings === "number");
+  const avgP = validPrices.length ? validPrices.reduce((a,b) => a + b.your_price, 0) / validPrices.length : 0;
+  const avgS = validSav.length ? validSav.reduce((a,b) => a + b.savings, 0) / validSav.length : 0;
+  const minP = validPrices.length ? Math.min(...validPrices.map(s => s.your_price)) : 0;
+  const maxP = validPrices.length ? Math.max(...validPrices.map(s => s.your_price)) : 0;
+  const states = new Set(allStations.map(s => s.state)).size;
+
+  document.getElementById("h-days").textContent = days.length;
+  document.getElementById("h-obs").textContent = n.toLocaleString();
+  document.getElementById("h-avg-price").textContent = avgP ? "$" + avgP.toFixed(4) : "—";
+  document.getElementById("h-avg-sav").textContent = avgS ? "$" + avgS.toFixed(4) : "—";
+  document.getElementById("h-min").textContent = minP ? "$" + minP.toFixed(4) : "—";
+  document.getElementById("h-max").textContent = maxP ? "$" + maxP.toFixed(4) : "—";
+  document.getElementById("h-states").textContent = states;
+
+  // Trend (recent half vs prev half)
+  const half = Math.max(1, Math.floor(days.length / 2));
+  if (days.length >= 2) {
+    const recent = days.slice(-half).flatMap(d => DATA.history_stations[d] || []);
+    const prev = days.slice(0, -half).flatMap(d => DATA.history_stations[d] || []);
+    if (recent.length && prev.length) {
+      const rAvg = recent.reduce((a,b) => a + (b.your_price||0), 0) / recent.length;
+      const pAvg = prev.reduce((a,b) => a + (b.your_price||0), 0) / prev.length;
+      const diff = rAvg - pAvg;
+      const el = document.getElementById("h-trend");
+      el.textContent = (diff >= 0 ? "▲" : "▼") + " $" + Math.abs(diff).toFixed(4);
+      el.style.color = diff <= 0 ? "#22c55e" : "#ef4444";
+    } else {
+      document.getElementById("h-trend").textContent = "—";
+    }
+  } else {
+    document.getElementById("h-trend").textContent = "n/a";
+  }
+
+  document.getElementById("date-range-label").textContent = days[0] + " → " + days[days.length-1];
+  document.getElementById("day-count-label").textContent = days.length + " dana prikazano";
+  document.getElementById("footer-info").textContent = "Snapshot: " + DATA.latest_date + " · " + DATA.n_stations + " stanica u poslednjem";
+
+  renderTrend(days);
+  renderDayList(days);
+  renderStateHeat(allStations);
+  renderTopStations(days);
+}
+
+function renderTrend(days) {
+  const svg = document.getElementById("trend-svg");
+  svg.innerHTML = "";
+  if (!days.length) return;
+
+  const data = days.map(d => {
+    const stations = DATA.history_stations[d] || [];
+    const valid = stations.filter(s => typeof s.your_price === "number");
+    const validR = stations.filter(s => typeof s.retail === "number" && s.retail > 0);
+    return {
+      date: d,
+      avgP: valid.length ? valid.reduce((a,b) => a + b.your_price, 0) / valid.length : 0,
+      avgR: validR.length ? validR.reduce((a,b) => a + b.retail, 0) / validR.length : 0,
+    };
+  }).filter(x => x.avgP > 0);
+
+  if (!data.length) return;
+
+  const W = 900, H = 200, pad = { top: 14, right: 28, bottom: 36, left: 60 };
+  const allVals = data.flatMap(x => [x.avgP, x.avgR]).filter(v => v > 0);
+  const minV = Math.min(...allVals) * 0.998;
+  const maxV = Math.max(...allVals) * 1.002;
+
+  const xAt = i => pad.left + (data.length > 1 ? (i / (data.length - 1)) * (W - pad.left - pad.right) : 0);
+  const yScale = v => H - pad.bottom - ((v - minV) / Math.max(0.001, maxV - minV)) * (H - pad.top - pad.bottom);
+
+  const ns = "http://www.w3.org/2000/svg";
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  svg.setAttribute("preserveAspectRatio", "none");
+
+  // grid + Y labels
+  for (const t of [0, 0.25, 0.5, 0.75, 1]) {
+    const v = minV + t * (maxV - minV);
+    const y = yScale(v);
+    const line = document.createElementNS(ns, "line");
+    line.setAttribute("x1", pad.left); line.setAttribute("y1", y);
+    line.setAttribute("x2", W - pad.right); line.setAttribute("y2", y);
+    line.setAttribute("stroke", "#1e293b"); line.setAttribute("stroke-width", "1");
+    svg.appendChild(line);
+    const tx = document.createElementNS(ns, "text");
+    tx.setAttribute("x", pad.left - 4); tx.setAttribute("y", y);
+    tx.setAttribute("fill", "#64748b"); tx.setAttribute("font-size", "10");
+    tx.setAttribute("text-anchor", "end"); tx.setAttribute("dominant-baseline", "central");
+    tx.textContent = "$" + v.toFixed(3);
+    svg.appendChild(tx);
+  }
+
+  // Retail line (dashed gray)
+  const retailPts = data.map((d, i) => xAt(i) + "," + yScale(d.avgR > 0 ? d.avgR : d.avgP)).join(" ");
+  const retail = document.createElementNS(ns, "polyline");
+  retail.setAttribute("points", retailPts);
+  retail.setAttribute("fill", "none"); retail.setAttribute("stroke", "#475569");
+  retail.setAttribute("stroke-width", "1.5"); retail.setAttribute("stroke-dasharray", "5 5");
+  svg.appendChild(retail);
+
+  // Milsped line (orange)
+  const milspedPts = data.map((d, i) => xAt(i) + "," + yScale(d.avgP)).join(" ");
+  const milsped = document.createElementNS(ns, "polyline");
+  milsped.setAttribute("points", milspedPts);
+  milsped.setAttribute("fill", "none"); milsped.setAttribute("stroke", "#f59e0b");
+  milsped.setAttribute("stroke-width", "2.5"); milsped.setAttribute("stroke-linecap", "round");
+  svg.appendChild(milsped);
+
+  // Dots
+  data.forEach((d, i) => {
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", xAt(i)); c.setAttribute("cy", yScale(d.avgP));
+    c.setAttribute("r", "4"); c.setAttribute("fill", "#f59e0b");
+    c.setAttribute("stroke", "#0f172a"); c.setAttribute("stroke-width", "2");
+    const title = document.createElementNS(ns, "title");
+    title.textContent = d.date + ": $" + d.avgP.toFixed(4) + "/gal (retail $" + d.avgR.toFixed(4) + ")";
+    c.appendChild(title);
+    svg.appendChild(c);
+  });
+
+  // X-axis labels
+  data.forEach((d, i) => {
+    if (data.length > 10 && i % Math.ceil(data.length / 10) !== 0 && i !== data.length - 1) return;
+    const tx = document.createElementNS(ns, "text");
+    tx.setAttribute("x", xAt(i)); tx.setAttribute("y", H - 8);
+    tx.setAttribute("fill", "#64748b"); tx.setAttribute("font-size", "9");
+    tx.setAttribute("text-anchor", "middle");
+    tx.textContent = d.date.slice(5);  // MM-DD only
+    svg.appendChild(tx);
+  });
+}
+
+function renderDayList(days) {
+  if (!days.length) { document.getElementById("day-list").innerHTML = '<div class="no-data">Nema podataka</div>'; return; }
+  const daysData = days.map(d => {
+    const st = DATA.history_stations[d] || [];
+    const validSav = st.filter(s => typeof s.savings === "number");
+    const validP = st.filter(s => typeof s.your_price === "number");
+    return {
+      date: d,
+      avgS: validSav.length ? validSav.reduce((a,b) => a + b.savings, 0) / validSav.length : 0,
+      avgP: validP.length ? validP.reduce((a,b) => a + b.your_price, 0) / validP.length : 0,
+      n: st.length,
+    };
+  });
+  const maxSav = Math.max(0.001, ...daysData.map(d => d.avgS));
+  document.getElementById("day-list").innerHTML = [...daysData].reverse().map(d => {
+    const pct = (d.avgS / maxSav * 100).toFixed(1);
+    const col = d.avgS >= 1.20 ? "#22c55e" : d.avgS >= 0.90 ? "#f59e0b" : "#ef4444";
+    return `<div class="day-row">
+      <span class="day-date">${d.date}</span>
+      <span style="color:#94a3b8;font-size:9px;min-width:60px">$${d.avgP.toFixed(4)}</span>
+      <div class="day-bar-wrap"><div class="day-bar" style="width:${pct}%;background:${col}"></div></div>
+      <span class="day-sav" style="color:${col}">$${d.avgS.toFixed(4)}</span>
+      <span class="day-n">${d.n}st</span>
+    </div>`;
+  }).join("");
+}
+
+function renderStateHeat(allStations) {
+  const stMap = {};
+  allStations.forEach(s => {
+    if (!stMap[s.state]) stMap[s.state] = [];
+    if (typeof s.savings === "number") stMap[s.state].push(s.savings);
+  });
+  const entries = Object.entries(stMap)
+    .map(([st, vals]) => ({ st, avg: vals.length ? vals.reduce((a,b) => a+b, 0)/vals.length : 0, n: vals.length }))
+    .filter(e => e.n > 0)
+    .sort((a, b) => b.avg - a.avg);
+
+  if (!entries.length) { document.getElementById("state-heat").innerHTML = '<div class="no-data">Nema podataka</div>'; return; }
+
+  const maxA = entries[0].avg, minA = entries[entries.length-1].avg;
+  document.getElementById("state-heat").innerHTML = entries.map(e => {
+    const t = maxA > minA ? (e.avg - minA) / (maxA - minA) : 0.5;
+    let bg, fg;
+    if (t > 0.66) { bg = "rgba(34,197,94,.25)"; fg = "#22c55e"; }
+    else if (t > 0.33) { bg = "rgba(245,158,11,.2)"; fg = "#f59e0b"; }
+    else { bg = "rgba(239,68,68,.15)"; fg = "#ef4444"; }
+    return `<div class="state-cell" style="background:${bg};color:${fg}">
+      <span class="state-name">${e.st}</span>
+      <span>$${e.avg.toFixed(3)}</span>
+      <span style="font-size:8px;color:#64748b;display:block;margin-top:1px">${e.n}×</span>
+    </div>`;
+  }).join("");
+}
+
+function renderTopStations(days) {
+  const stMap = {};
+  days.forEach(d => {
+    (DATA.history_stations[d] || []).forEach(s => {
+      const key = s.site + "|" + s.city + "|" + s.state;
+      if (!stMap[key]) stMap[key] = { city: s.city, state: s.state, site: s.site, vals: [], prices: [] };
+      if (typeof s.savings === "number") stMap[key].vals.push(s.savings);
+      if (typeof s.your_price === "number") stMap[key].prices.push(s.your_price);
+    });
+  });
+  const minDays = Math.min(2, days.length);
+  const ranked = Object.values(stMap)
+    .filter(x => x.vals.length >= minDays)
+    .map(x => ({
+      ...x,
+      avgSav: x.vals.reduce((a,b) => a+b, 0) / x.vals.length,
+      avgP: x.prices.length ? x.prices.reduce((a,b) => a+b, 0) / x.prices.length : 0,
+      d: x.vals.length,
+    }))
+    .sort((a, b) => b.avgSav - a.avgSav)
+    .slice(0, 20);
+
+  if (!ranked.length) { document.getElementById("rank-list").innerHTML = '<div class="no-data">Nema podataka</div>'; return; }
+
+  document.getElementById("rank-list").innerHTML = ranked.map((r, i) => {
+    const cls = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    return `<div class="rank-item">
+      <div class="rank-pos ${cls}">${i+1}</div>
+      <div class="rank-name">
+        <div style="font-weight:600">${r.city}</div>
+        <div class="rank-state">${r.state} · Site #${r.site} · ${r.d}d</div>
+      </div>
+      <div>
+        <div class="rank-val">$${r.avgSav.toFixed(4)}</div>
+        <div class="rank-cnt">avg $${r.avgP.toFixed(4)}/gal</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+</script>
+</body>
+</html>

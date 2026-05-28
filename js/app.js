@@ -1,0 +1,140 @@
+/* app.js - entry point za Dispatch Calculator */
+(async function () {
+  "use strict";
+
+  const overlay = document.getElementById("loading-overlay");
+  const overlayText = document.getElementById("loading-text");
+  function setText(s) { if (overlayText) overlayText.textContent = s; }
+  function hideOverlay() { if (overlay) overlay.classList.add("hide"); }
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to load " + url + ": " + res.status);
+    return res.json();
+  }
+
+  try {
+    // PRISTUP 1: ako je bundle.js učitan (script tag), koristi window.__BUNDLE__
+    // — radi i pri otvaranju preko file:// protokola (bez HTTP servera/Pythona).
+    // PRISTUP 2: fallback na fetch() — radi kada se učitava preko HTTP servera.
+    const B = window.__BUNDLE__;
+    let lanesWrap, zips, pilots, fuelPrices;
+    if (B) {
+      setText("Loading bundled data...");
+      lanesWrap   = B.lanes;
+      zips        = B.zip_centroids;
+      pilots      = B.pilot_stations;
+      fuelPrices  = B.fuel_prices;
+    } else {
+      setText("Loading historical lane data...");
+      lanesWrap = await fetchJson("data/lanes.json");
+
+      setText("Loading ZIP database (~42k zips)...");
+      zips = await fetchJson("data/zip_centroids.json");
+
+      setText("Loading Pilot stations...");
+      pilots = await fetchJson("data/pilot_stations.json");
+
+      setText("Loading current fuel prices...");
+      try {
+        fuelPrices = await fetchJson("data/fuel_prices.json");
+      } catch (e) {
+        console.warn("fuel_prices.json unavailable", e);
+        fuelPrices = null;
+      }
+    }
+
+    const pilotsNorm = {};
+    for (const [k, v] of Object.entries(pilots)) {
+      if (typeof v.lat === "number" && typeof v.lon === "number") pilotsNorm[k] = v;
+    }
+
+    const defaultPeriod = (lanesWrap.metadata && lanesWrap.metadata.default_period) || "90";
+    const period = lanesWrap.fleet[defaultPeriod] ? defaultPeriod : "all";
+    const fleet = lanesWrap.fleet[period];
+    const lanes = lanesWrap.lanes[period];
+    window._currentPeriod = period;
+    window._lanesWrap = lanesWrap;
+
+    CalcCore.configure({ fleet: fleet, lanes: lanes, defaultMpg: 6.32, insurancePm: 0.105 });
+    ZipDistance.load(zips, pilotsNorm);
+
+    if (fuelPrices && window.FuelRecommender) {
+      const loadInfo = FuelRecommender.load(fuelPrices);
+      window._fuelSnapshotDate = loadInfo.latest_date;
+      const badge = document.getElementById("period-badge");
+      if (badge) {
+        badge.textContent = loadInfo.latest_date ? "Fuel: " + loadInfo.latest_date : "Bez fuel snapshot-a";
+      }
+    } else {
+      const badge = document.getElementById("period-badge");
+      if (badge) badge.textContent = "Bez fuel snapshot-a";
+    }
+
+    CalcUI.init();
+    CalcUI.addCalc();
+    CalcUI.addCalc();
+    CalcUI.addCalc();
+
+    setText("Ready.");
+    setTimeout(hideOverlay, 200);
+
+    document.querySelectorAll(".period-toggle button").forEach(function (btn) {
+      const p = btn.getAttribute("data-period");
+      btn.classList.toggle("on", p === period);
+      btn.addEventListener("click", function () {
+        if (!lanesWrap.lanes[p]) {
+          showStubToast("Period \"" + p + "\" not available.");
+          return;
+        }
+        document.querySelectorAll(".period-toggle button").forEach(function (b) { b.classList.remove("on"); });
+        btn.classList.add("on");
+        window._currentPeriod = p;
+        CalcCore.configure({ fleet: lanesWrap.fleet[p], lanes: lanesWrap.lanes[p] });
+        updatePeriodInfo();
+        CalcUI.render();
+      });
+    });
+
+    function updatePeriodInfo() {
+      const info = document.getElementById("period-info");
+      if (!info) return;
+      const p = window._currentPeriod;
+      const fl = lanesWrap.fleet[p];
+      const meta = lanesWrap.metadata || {};
+      const refDate = meta.reference_date || "-";
+      const nTrips = fl ? fl.n_trips || 0 : 0;
+      info.textContent = "ref " + refDate + " * " + nTrips.toLocaleString() + " trips * fleet CM/mi $" + (fl ? fl.cm_pm.toFixed(4) : "-");
+    }
+    updatePeriodInfo();
+
+    const printBtn = document.getElementById("btn-print");
+    if (printBtn) printBtn.addEventListener("click", function () { CalcUI.printAll(); });
+    const exportBtn = document.getElementById("btn-export-log");
+    if (exportBtn) exportBtn.addEventListener("click", function () { PrintTrace.exportLog(); });
+    const clearBtn = document.getElementById("btn-clear-log");
+    if (clearBtn) clearBtn.addEventListener("click", function () {
+      if (PrintTrace.clearLog()) { CalcUI.render(); showStubToast("Trace log cleared."); }
+    });
+
+    const dispInput = document.getElementById("dispatcher-name");
+    if (dispInput) {
+      dispInput.value = localStorage.getItem("dispatcher_name") || "";
+      dispInput.addEventListener("change", function (e) {
+        localStorage.setItem("dispatcher_name", e.target.value);
+      });
+    }
+
+  } catch (err) {
+    setText("Error: " + err.message);
+    console.error(err);
+  }
+
+  function showStubToast(msg) {
+    let t = document.getElementById("toast");
+    if (!t) { t = document.createElement("div"); t.id = "toast"; t.className = "toast"; document.body.appendChild(t); }
+    t.className = "toast show"; t.textContent = msg;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.className = "toast"; }, 2600);
+  }
+})();

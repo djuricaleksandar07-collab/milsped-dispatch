@@ -1,0 +1,16 @@
+# Avoid pushing huge raw data dumps - bundle.js is enough
+# (bundle.js has everything pre-baked)
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Kalkulator Dispečera v2 — Milsped LLC</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ── Loading overlay ─────────────────────────────────────────────── -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Učitavam…</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ── Header ────────────────────────────────────────────────────── -->
+  <header style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <h1>Dispatcher Calculator</h1>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="badge-g">CD drivers</div>
+      <div class="badge" id="period-badge"></div>
+      <a href="fuel_dashboard.html" class="btn-icon" target="_blank" style="text-decoration:none">⛽ Fuel Dashboard</a>
+    </div>
+  </header>
+
+  <!-- ── Top control bar: period + dispatcher + print ───────────────── -->
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="period-group">
+        <span class="period-lbl">Period</span>
+        <div class="period-toggle" id="period-toggle">
+          <button data-period="30">30d</button>
+          <button data-period="90" class="on">90d</button>
+          <button data-period="180">180d</button>
+          <button data-period="365">365d</button>
+          <button data-period="all">All</button>
+        </div>
+        <span class="period-info" id="period-info"></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="period-lbl">Dispatcher</span>
+        <input type="text" id="dispatcher-name" placeholder="name…" style="padding:5px 9px;border:1px solid var(--bd2);border-radius:5px;font-size:12px;width:140px;outline:none">
+      </div>
+    </div>
+    <div class="top-bar-right print-controls">
+      <span class="trace-count" id="trace-count">Trace: <b>0</b></span>
+      <button class="btn-icon" id="btn-export-log" title="Export trace as JSON">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg> Export
+      </button>
+      <button class="btn-icon" id="btn-clear-log" title="Clear trace log">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+      </button>
+      <button class="btn-icon primary" id="btn-print" title="Save HTML report and open print dialog">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg> Print
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Fleet ref ──────────────────────────────────────────────────── -->
+  <div class="fleet-ref">
+    <div class="fleet-ref-title">Fleet averages — reference values (CD drivers, selected period)</div>
+    <div class="fleet-row" id="fleet-row"></div>
+  </div>
+
+  <!-- ── Ranking ────────────────────────────────────────────────────── -->
+  <div class="rank-header">
+    <div class="rank-header-lbl">Load comparison</div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <span style="font-size:11px;color:var(--mu)">Rank by:</span>
+      <div class="rank-toggle">
+        <button id="rb-cm_pt"  class="on" onclick="CalcUI.setMetric('cm_pt')">CM/load</button>
+        <button id="rb-cm_day"      onclick="CalcUI.setMetric('cm_day')">CM/day</button>
+        <button id="rb-cm_pm"       onclick="CalcUI.setMetric('cm_pm')">CM/mi</button>
+        <button id="rb-cm_pct"      onclick="CalcUI.setMetric('cm_pct')">CM%</button>
+      </div>
+    </div>
+  </div>
+  <div class="rank-strip" id="rank-strip"></div>
+
+  <!-- ── Calc grid ──────────────────────────────────────────────────── -->
+  <div class="calc-section-lbl">Load calculators</div>
+  <div class="calc-grid" id="calc-grid">
+    <button class="add-calc-btn" onclick="CalcUI.addCalc()" title="Add load">＋</button>
+  </div>
+
+  <!-- ── Map ────────────────────────────────────────────────────────── -->
+  <div class="map-card">
+    <div class="map-hdr">
+      <div>
+        <div class="map-hdr-l">Route visualization</div>
+        <div class="map-hdr-sub">Color = selected metric · thickness = miles · hover for details</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--mu)">
+        <div style="width:50px;height:3px;background:linear-gradient(90deg,#c8d8e8,#55c5b3,#1f9080);border-radius:2px"></div>
+        low → high
+      </div>
+    </div>
+    <svg id="calc-map" viewBox="0 0 960 520" style="height:260px"></svg>
+  </div>
+
+</div>
+
+<!-- Skripte — ucitavaju se redom -->
+<!-- Inline data bundle - omogucava otvaranje bez Pythona/HTTP servera.
+     Ako bundle.js ne postoji, app.js ce fallback-ovati na fetch(). -->
+<script src="data/bundle.js" onerror="console.log('bundle.js not found - using fetch fallback')"></script>
+
+<script src="js/zip-distance.js"></script>
+<script src="js/calc-core.js"></script>
+<script src="js/fuel-recommender.js"></script>
+<script src="js/lane-recommender.js"></script>
+<script src="js/print-trace.js"></script>
+<script src="js/calc-ui.js"></script>
+<script src="js/calc-ui-card.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
