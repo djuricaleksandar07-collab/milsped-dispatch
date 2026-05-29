@@ -114,19 +114,18 @@
     if (distanceMi != null && distanceMi > 0) {
       leg.miles_loaded = +distanceMi.toFixed(0);
     }
-    // Auto-apply: prosek 3 najjeftinijih Pilot pumpi u koridoru
-    // (realnija procena fuel troška vs. samo najjeftinija - dispečer ne stigne uvek)
+    // Auto-apply: prosek SVIH Pilot pumpi u ±25mi koridoru rute
+    // (realna procena fuel troška - dispečer ne kontroliše tačnu pumpu)
     if (typeof globalThis.FuelRecommender !== "undefined" && globalThis.FuelRecommender.recommendForLeg) {
       try {
         const rec = globalThis.FuelRecommender.recommendForLeg(leg.pu_zip, leg.del_zip, {
-          topN: 3, mpg: leg.mpg || DEFAULT_MPG,
+          maxOffsetMi: 25, mpg: leg.mpg || DEFAULT_MPG,
         });
-        if (rec && rec.top3AvgPrice && rec.top3AvgPrice > 0) {
-          leg.fuel = rec.top3AvgPrice / (leg.mpg || DEFAULT_MPG);
-          leg.fuel_source = "live_top3_avg";
-          leg.fuel_avg_price = rec.top3AvgPrice;
-          // Sačuvaj broj stanica koje su učestvovale u proseku (za debug/trace)
-          leg.fuel_top3_count = Math.min(3, (rec.stations || []).length);
+        if (rec && rec.avgCorridorPrice && rec.avgCorridorPrice > 0) {
+          leg.fuel = rec.avgCorridorPrice / (leg.mpg || DEFAULT_MPG);
+          leg.fuel_source = "live_corridor_avg";
+          leg.fuel_avg_price = rec.avgCorridorPrice;
+          leg.fuel_corridor_count = rec.total_in_corridor;
         }
       } catch (e) {
         // FuelRecommender nije ucitan ili ZIP nije validan - pada na lane.fuel_pm

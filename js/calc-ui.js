@@ -36,13 +36,11 @@
 
   function metricFmt(tot) {
     if (metric === "cm_pt")  return "$" + fm(tot.cm_pt);
-    if (metric === "cm_pct") return fPct(tot.cm_pct);
     if (metric === "cm_day") return "$" + fm(tot.cm_per_day || 0);
     return "$" + f4(tot.cm_pm);
   }
   function metricLbl() {
     return metric === "cm_pt"  ? "CM/load"
-         : metric === "cm_pct" ? "CM%"
          : metric === "cm_day" ? "CM/day"
          : "CM/mi";
   }
@@ -126,14 +124,17 @@
       const pct = Math.max(0, CalcCore.metricVal(t, metric) / maxV * 100);
       const rkC = rank === 0 ? "rk1" : rank === 1 ? "rk2" : rank === 2 ? "rk3" : "rkn";
       const rkL = rank === 0 ? "#1 ★" : `#${rank + 1}`;
-      const route = c.legs.filter(l => l.pu_state && l.del_state).map(l => `${l.pu_state}→${l.del_state}`).join(" · ") || "—";
+      const validLegs = c.legs.filter(l => l.pu_state && l.del_state);
+      const route = validLegs.map(l => `${l.pu_state}→${l.del_state}`).join(" · ") || "—";
+      // ZIP-to-ZIP - 5-digit pickup ZIP -> delivery ZIP (jedan red po legu)
+      const zipPairs = c.legs.filter(l => l.pu_zip && l.del_zip).map(l => `${l.pu_zip}&rarr;${l.del_zip}`).join(" · ");
       const win = rank === 0 && calcs.length > 1;
-      const lose = rank === calcs.length - 1 && calcs.length > 2;
       const hasData = c.legs.some(l => l.pu_state && l.del_state);
       const below = hasData && t.cm_pm < 0.850;
-      return `<div class="rank-card${below ? " below" : win ? " winner" : lose ? " loser" : ""}">
-        <div class="rc-id" style="color:${below ? "var(--rd)" : col}">Load ${c.id}${below ? " ⚠" : ""}</div>
+      return `<div class="rank-card${win ? " winner" : ""}">
+        <div class="rc-id" style="color:${col}">Load ${c.id}${below ? " ⚠" : ""}</div>
         <div class="rc-route">${route}</div>
+        ${zipPairs ? `<div class="rc-zips">${zipPairs}</div>` : ""}
         <div class="rc-main" style="color:${CalcCore.metricVal(t, metric) >= 0 ? "var(--gd)" : "var(--rd)"}">${metricFmt(t)}</div>
         <div class="rc-sub">${metricLbl()} · <span style="color:var(--nv)">$${fm(t.totalCmPt)}/load · $${fm(t.cm_per_day||0)}/day</span> · $${f4(t.cm_pm)}/mi · ${fPct(t.emptyPct)} empty</div>
         <div><span class="rc-rank ${rkC}">${rkL}</span>${below ? '<span class="threshold-line">ispod praga $0.850/mi</span>' : ""}</div>
@@ -223,7 +224,6 @@
             ["CM/mi", "$" + f4(t.cm_pm)],
             ["CM/load", "$" + fm(t.totalCmPt)],
             ["CM/day", "$" + fm(t.cm_per_day || 0)],
-            ["CM%", fPct(t.cm_pct)],
             ["Loaded mi", fmi(t.loadedMiles)],
             ["Empty mi", fmi(t.emptyMiles) + " (" + fPct(t.emptyPct) + ")"],
             ["Legova", String(c.legs.length)],

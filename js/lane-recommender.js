@@ -70,8 +70,9 @@
     // Sort by chosen metric (poklapa metric toggle u UI-ju)
     if (sortBy === "cm_pt") {
       candidates.sort((a, b) => b.expected_cm - a.expected_cm);
-    } else if (sortBy === "cm_pct") {
-      candidates.sort((a, b) => b.cm_pct - a.cm_pct);
+    } else if (sortBy === "cm_day") {
+      // CM/day = CM/mi * 400 - rang isti kao cm_pm_adj jer je linearna konstanta
+      candidates.sort((a, b) => b.cm_pm_adj - a.cm_pm_adj);
     } else if (sortBy === "rpm") {
       candidates.sort((a, b) => b.rpm - a.rpm);
     } else {

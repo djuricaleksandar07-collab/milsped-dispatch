@@ -57,6 +57,7 @@
         printed_at: ts,
         calc_id: c.id,
         dispatcher: metadata.dispatcher || "",
+        truck_number: metadata.truck_number || "",
         selected: !!c.selected,
         comment: (c.comment || "").trim(),
         period_days: metadata.period_days || null,
@@ -104,6 +105,7 @@
   // Standalone HTML report sa svim podacima za odštampanu turu
   function _buildReportHtml(entries, metadata) {
     const dispatcher = metadata.dispatcher || "anonimno";
+    const truckNumber = metadata.truck_number || "—";
     const ts = new Date().toLocaleString("sr-RS");
     const period = metadata.period_days || "all";
     const fuelDate = metadata.fuel_snapshot_date || "—";
@@ -135,7 +137,6 @@
         "<div><span>CM/mi:</span> <b style='color:" + cmColor + "'>$" + e.cm_per_mi.toFixed(4) + "</b></div>" +
         "<div><span>CM/load:</span> <b style='color:" + cmColor + "'>$" + e.total_cm.toLocaleString() + "</b></div>" +
         "<div><span>CM/day (@400mi):</span> <b style='color:" + cmColor + "'>$" + Math.round(cmDay).toLocaleString() + "</b></div>" +
-        "<div><span>CM%:</span> <b style='color:" + cmColor + "'>" + e.cm_pct.toFixed(2) + "%</b></div>" +
         "<div><span>Gross/load:</span> <b>$" + e.total_revenue.toLocaleString() + "</b></div>" +
         "<div><span>Total miles:</span> <b>" + e.total_miles.toLocaleString() + "</b> (" + e.empty_pct.toFixed(1) + "% empty)</div>" +
         "<div><span>Eff RPM:</span> <b>$" + e.effective_rpm.toFixed(3) + "</b></div>" +
@@ -170,7 +171,7 @@
       "</style></head><body>" +
       "<div class='hdr'><div><h1>Dispatch Calculator — Print Report</h1>" +
       "<div style='font-size:11px;color:#5a6e85;margin-top:4px'>Milsped LLC · CD drivers</div></div>" +
-      "<div class='meta'><div><b>Dispatcher:</b> " + dispatcher + "</div>" +
+      "<div class='meta'><div><b>Dispatcher:</b> " + dispatcher + " &nbsp;·&nbsp; <b>Truck #:</b> " + truckNumber + "</div>" +
       "<div><b>Date:</b> " + ts + "</div>" +
       "<div><b>Period:</b> " + period + " · <b>Fuel:</b> " + fuelDate + "</div>" +
       "<div>Loads: " + entries.length + "</div></div></div>" +
@@ -180,10 +181,12 @@
       "</body></html>";
   }
 
-  // Snimi HTML report u Downloads sa imenom: dispatcher_YYYY-MM-DD_HHmm.html
+  // Snimi HTML report u Downloads sa imenom: dispatcher_truck#_YYYY-MM-DD_HHmm.html
   function _saveReport(entries, metadata) {
     const html = _buildReportHtml(entries, metadata);
-    const filename = _sanitize(metadata.dispatcher || "anonimno") + "_" + _stamp() + ".html";
+    const disp = _sanitize(metadata.dispatcher || "anonimno");
+    const truck = _sanitize(metadata.truck_number || "no-truck");
+    const filename = disp + "_truck-" + truck + "_" + _stamp() + ".html";
     _download(filename, html, "text/html");
     return filename;
   }
@@ -209,7 +212,7 @@
   function exportLogCsv() {
     const entries = _read().entries;
     if (!entries.length) { alert("Trace log je prazan."); return; }
-    const cols = ["printed_at","calc_id","dispatcher","period_days","lanes","zips","leg_count","loaded_miles","empty_miles","total_miles","empty_pct","total_revenue","total_cm","cm_per_mi","cm_per_day","cm_pct","effective_rpm","cm_per_mi_hist","comment"];
+    const cols = ["printed_at","calc_id","dispatcher","truck_number","selected","period_days","lanes","zips","leg_count","loaded_miles","empty_miles","total_miles","empty_pct","total_revenue","total_cm","cm_per_mi","cm_per_day","effective_rpm","cm_per_mi_hist","comment"];
     const esc = function (v) {
       if (v == null) return "";
       const s = String(v);

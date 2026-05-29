@@ -34,9 +34,10 @@ h1 em{color:var(--mu);font-style:normal;font-weight:300}
 .rank-strip{display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;padding-bottom:2px}
 .rank-card{background:var(--bg2);border:2px solid var(--bd);border-radius:var(--rl);padding:13px 15px;min-width:170px;flex:1;text-align:center;box-shadow:var(--sh);transition:all .2s}
 .rank-card.winner{border-color:var(--gd);box-shadow:0 0 0 3px rgba(26,138,96,.1)}
-.rank-card.loser{opacity:.4}
+/* Loser/dim styling removed - svi loadovi imaju istu vidljivost. */
 .rc-id{font-size:10px;font-weight:700;font-family:'DM Mono',monospace;margin-bottom:5px}
-.rc-route{font-size:11px;color:var(--nv);min-height:30px;margin-bottom:7px;line-height:1.4}
+.rc-route{font-size:11px;color:var(--nv);min-height:18px;margin-bottom:3px;line-height:1.3}
+.rc-zips{font-size:10px;color:var(--mu);font-family:'DM Mono',monospace;margin-bottom:7px;line-height:1.3;letter-spacing:-.2px}
 .rc-main{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:-1px;line-height:1}
 .rc-sub{font-size:10.5px;color:var(--mu);margin-top:4px;font-family:'DM Mono',monospace}
 .rc-rank{font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;margin-top:6px;display:inline-block}
@@ -57,9 +58,7 @@ h1 em{color:var(--mu);font-style:normal;font-weight:300}
 .calc-grid{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;align-items:flex-start}
 .calc-card{background:var(--bg2);border:2px solid var(--bd);border-radius:var(--rl);width:380px;flex-shrink:0;box-shadow:var(--sh);transition:border-color .2s}
 .calc-card.winner{border-color:var(--gd)}
-.calc-card.loser{opacity:.5}
-.calc-card.below{border-color:#e8a0a0!important;box-shadow:0 0 0 2px rgba(184,53,53,.07)}
-.rank-card.below{border-color:#e8a0a0!important;box-shadow:0 0 0 2px rgba(184,53,53,.07)}
+/* Loser i Below dim/red highlight uklonjeni - svi loadovi imaju istu boju. */
 .below-badge{display:inline-flex;align-items:center;gap:4px;background:#fdf0f0;color:var(--rd);border:1px solid #f5c6c6;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;margin-top:7px;font-family:'DM Mono',monospace}
 .threshold-line{font-size:10px;color:#c07070;font-family:'DM Mono',monospace;margin-top:3px}
 .leg-below{border-color:#e8a0a0!important;background:#fdf8f8!important}
@@ -275,7 +274,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 /* Dispatch "selected" radio (in calc card header) */
 .dispatch-radio{display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:3px 9px;border:1px solid var(--bd2);border-radius:14px;background:var(--bg);transition:all .15s;user-select:none}
 .dispatch-radio:hover{border-color:var(--tl);background:rgba(85,197,179,.06)}
-.dispatch-radio input[type=radio]{margin:0;cursor:pointer;accent-color:var(--gd)}
+.dispatch-radio input{margin:0;cursor:pointer;accent-color:var(--gd)}
 .dispatch-radio-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;font-family:'DM Mono',monospace;color:var(--mu)}
 .dispatch-radio input:checked + .dispatch-radio-lbl{color:var(--gd)}
 .calc-card.selected{box-shadow:0 0 0 2px var(--gd),0 6px 18px rgba(26,138,96,.15)!important;border-color:var(--gd)!important}

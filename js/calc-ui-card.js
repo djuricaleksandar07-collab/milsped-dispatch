@@ -135,27 +135,18 @@
   function renderFuelRec(cId, l) {
     if (!global.FuelRecommender || !FuelRecommender.getLatestDate()) return "";
     if (!l.pu_zip || !l.del_zip) return "";
-    const rec = FuelRecommender.recommendForLeg(l.pu_zip, l.del_zip, { topN: 3, mpg: l.mpg });
+    const rec = FuelRecommender.recommendForLeg(l.pu_zip, l.del_zip, { maxOffsetMi: 25, mpg: l.mpg });
     const snap = FuelRecommender.getLatestDate();
-    if (!rec || !rec.stations || !rec.stations.length) {
+    if (!rec || !rec.total_in_corridor) {
       return '<div class="fuel-rec"><div class="fuel-rec-hdr">' +
-        '<span class="fuel-rec-title">Pilot fuel stops in corridor</span>' +
+        '<span class="fuel-rec-title">Pilot fuel corridor (&plusmn;25mi)</span>' +
         '<span class="fuel-rec-meta">' + snap + '</span></div>' +
-        '<div class="fuel-rec-empty">No Pilot stations within &plusmn;50mi of route.</div></div>';
+        '<div class="fuel-rec-empty">No Pilot stations within &plusmn;25mi of route.</div></div>';
     }
-    const items = rec.stations.map(function (s, i) {
-      return '<div class="fuel-rec-item' + (i === 0 ? " best" : "") + '">' +
-        '<span class="fuel-rec-site">#' + s.site + '</span>' +
-        '<span class="fuel-rec-loc">' + (s.city || "-") + ', ' + (s.state || "-") + '</span>' +
-        '<span class="fuel-rec-price">$' + s.your_price.toFixed(4) + '</span>' +
-        '<span class="fuel-rec-detail">' + s.detour_mi + 'mi &middot; ' + s.position_pct + '%</span>' +
-        '</div>';
-    }).join("");
-    const avgTxt = (rec.top3AvgPrice != null) ? '$' + rec.top3AvgPrice.toFixed(4) + '/gal' : "n/a";
+    const avgTxt = '$' + rec.avgCorridorPrice.toFixed(4) + '/gal';
     return '<div class="fuel-rec"><div class="fuel-rec-hdr">' +
-      '<span class="fuel-rec-title">Pilot fuel stops in corridor (' + rec.total_in_corridor + ')</span>' +
-      '<span class="fuel-rec-meta">Snapshot: ' + snap + ' &middot; avg of top 3 applied: ' + avgTxt + '</span></div>' +
-      '<div class="fuel-rec-list">' + items + '</div></div>';
+      '<span class="fuel-rec-title">Pilot fuel corridor (&plusmn;25mi)</span>' +
+      '<span class="fuel-rec-meta">' + snap + ' &middot; ' + rec.total_in_corridor + ' stations &middot; avg applied: <b>' + avgTxt + '</b></span></div></div>';
   }
 
   function applyFuelRec(cId, lId, pricePerGal) {
@@ -180,7 +171,7 @@
     const recs = LaneRecommender.recommendNext(lastLeg.del_state, {
       lanesObj: lanesObj, fleet: fleet, topN: 3, minTrips: 3, sortBy: sortBy,
     });
-    const metricLbl = sortBy === "cm_pt" ? "CM/turi" : sortBy === "cm_pct" ? "CM%" : "CM/mi";
+    const metricLbl = sortBy === "cm_pt" ? "CM/load" : sortBy === "cm_day" ? "CM/day" : "CM/mi";
     if (!recs.length) {
       return '<div class="lane-rec"><div class="lane-rec-hdr">' +
         '<span class="lane-rec-title">Top 3 next legs from ' + lastLeg.del_state + '</span>' +
@@ -190,15 +181,16 @@
     const items = recs.map(function (r, i) {
       // Glavna brojka (po sortBy), sekundarna ispod
       let primary, secondary;
+      const cmDay = (r.cm_pm_adj || 0) * 400;
       if (sortBy === "cm_pt") {
         primary = '$' + Math.round(r.expected_cm).toLocaleString() + '/load';
-        secondary = '$' + r.cm_pm_adj.toFixed(3) + '/mi · ' + (r.cm_pct * 100).toFixed(1) + '%';
-      } else if (sortBy === "cm_pct") {
-        primary = (r.cm_pct * 100).toFixed(2) + '%';
+        secondary = '$' + r.cm_pm_adj.toFixed(3) + '/mi · $' + Math.round(cmDay).toLocaleString() + '/day';
+      } else if (sortBy === "cm_day") {
+        primary = '$' + Math.round(cmDay).toLocaleString() + '/day';
         secondary = '$' + r.cm_pm_adj.toFixed(3) + '/mi · $' + Math.round(r.expected_cm).toLocaleString() + '/load';
       } else {
         primary = '$' + r.cm_pm_adj.toFixed(4) + '/mi';
-        secondary = '$' + Math.round(r.expected_cm).toLocaleString() + '/load · ' + (r.cm_pct * 100).toFixed(1) + '%';
+        secondary = '$' + Math.round(r.expected_cm).toLocaleString() + '/load · $' + Math.round(cmDay).toLocaleString() + '/day';
       }
       return '<div class="lane-rec-item' + (i === 0 ? " best" : "") + '">' +
         '<span class="lane-rec-pair">' + r.pu + ' &rarr; ' + r.del + '</span>' +
@@ -384,8 +376,8 @@
         // LEG RESULT
         '<div class="leg-result">' +
         '<div class="lr-box"><div class="lr-lbl">CM/mi</div><div class="lr-val" style="color:' + cmColor + '">$' + f4(lr.cm_pm) + '</div></div>' +
-        '<div class="lr-box"><div class="lr-lbl">CM/turi</div><div class="lr-val" style="color:' + cmColor + '">$' + fm(lr.cm_pt) + '</div><div class="lr-fix">' + fmi(lr.miles_total) + ' mi</div></div>' +
-        '<div class="lr-box"><div class="lr-lbl">CM%</div><div class="lr-val" style="color:' + cmColor + '">' + fPct(lr.cm_pct) + '</div>' +
+        '<div class="lr-box"><div class="lr-lbl">CM/load</div><div class="lr-val" style="color:' + cmColor + '">$' + fm(lr.cm_pt) + '</div><div class="lr-fix">' + fmi(lr.miles_total) + ' mi</div></div>' +
+        '<div class="lr-box"><div class="lr-lbl">CM/day</div><div class="lr-val" style="color:' + cmColor + '">$' + fm((lr.cm_pm || 0) * 400) + '</div>' +
         (dCmPm != null
           ? '<div class="lr-fix ' + dCls + '">' + (dCmPm >= 0 ? '+' : '') + '$' + f4(dCmPm) + ' vs hist.</div>'
           : '<div class="lr-fix">&nbsp;</div>') +
@@ -444,14 +436,16 @@
       '</div>';
 
     // Dispatcher selected radio (only one load can be selected as "to dispatch")
+    // onclick (not onchange) tako da klik na vec selektovan deselektuje - HTML
+    // radio prirodno ne triggeruje onchange ako stanje vec stoji.
     const isSelected = !!c.selected;
-    const selectedRadio = '<label class="dispatch-radio" title="Mark this load as the one to dispatch (appears in print)">' +
-      '<input type="radio" name="dispatch-selected" ' + (isSelected ? 'checked' : '') +
-      ' onchange="CalcUI.onSelectedToggle(' + c.id + ')">' +
+    const selectedRadio = '<label class="dispatch-radio" title="Click to toggle - mark as dispatched or unmark">' +
+      '<input type="checkbox" ' + (isSelected ? 'checked' : '') +
+      ' onclick="CalcUI.onSelectedToggle(' + c.id + ')">' +
       '<span class="dispatch-radio-lbl">' + (isSelected ? '&#10003; Dispatched' : 'Mark as dispatched') + '</span>' +
       '</label>';
 
-    return '<div class="calc-card' + (below ? ' below' : win ? ' winner' : lose ? ' loser' : '') + (isSelected ? ' selected' : '') + '" id="cc-' + c.id + '" data-id="' + c.id + '">' +
+    return '<div class="calc-card' + (win ? ' winner' : '') + (isSelected ? ' selected' : '') + '" id="cc-' + c.id + '" data-id="' + c.id + '">' +
       '<div class="cc-hdr">' +
       '<span class="cc-title" style="color:' + col + '">Load ' + c.id + '</span>' +
       '<div style="display:flex;align-items:center;gap:8px">' + selectedRadio + belowBadge + closeBtn + '</div>' +
@@ -466,12 +460,29 @@
       '</div></div>';
   }
 
+  // Renumber calcs and their legs sequentially (1, 2, 3, ...) so we never
+  // skip numbers when a load is removed. Must be called whenever the calcs
+  // array changes membership (add / remove).
+  function _resequence() {
+    const arr = I.getCalcs();
+    arr.forEach(function (c, i) {
+      const newId = i + 1;
+      if (c.id !== newId) {
+        c.id = newId;
+        c.legs.forEach(function (l, li) { l.id = newId * 1000 + li + 1; });
+      }
+    });
+    I.state.idCtr = arr.length;
+    I.setIdCtr(arr.length);
+  }
+
   // Actions
   function addCalc() {
-    I.state.idCtr = (I.state.idCtr || 0) + 1;
-    I.setIdCtr(I.state.idCtr);
-    const id = I.state.idCtr;
-    I.getCalcs().push({ id: id, legs: [CalcCore.newLeg(id, 0)], comment: "", selected: false });
+    const arr = I.getCalcs();
+    const id = arr.length + 1;
+    arr.push({ id: id, legs: [CalcCore.newLeg(id, 0)], comment: "", selected: false });
+    I.state.idCtr = id;
+    I.setIdCtr(id);
     render();
   }
 
@@ -498,6 +509,7 @@
     const arr = I.getCalcs();
     if (arr.length <= 1) return;
     I.setCalcs(arr.filter(function (c) { return c.id !== id; }));
+    _resequence();
     render();
   }
   function addLeg(cId) {
@@ -532,7 +544,7 @@
   function setMetric(m) {
     I.setMetric(m);
     I.state.metric = m;
-    ["cm_pm", "cm_pt", "cm_pct", "cm_day"].forEach(function (k) {
+    ["cm_pm", "cm_pt", "cm_day"].forEach(function (k) {
       const btn = document.getElementById("rb-" + k);
       if (btn) btn.className = k === m ? "on" : "";
     });
@@ -561,13 +573,27 @@
     if (!arr.length) { showToast("No loads to print", "error"); return; }
     const valid = arr.filter(function (c) { return c.legs.some(function (l) { return l.pu_state && l.del_state; }); });
     if (!valid.length) { showToast("No load has PU/DEL ZIPs filled in", "error"); return; }
+
+    // Mandatory: Dispatcher + Truck Number
     const dispatcher = (localStorage.getItem("dispatcher_name") || "").trim();
+    const truckNumber = (localStorage.getItem("truck_number") || "").trim();
     if (!dispatcher) {
-      if (!confirm("Dispatcher name is empty. File will be saved as 'anonymous_*.html'. Continue?")) return;
+      showToast("Dispatcher name is required before printing.", "error");
+      const di = document.getElementById("dispatcher-name");
+      if (di) { di.focus(); di.style.borderColor = "var(--rd)"; di.style.boxShadow = "0 0 0 2px rgba(184,53,53,.15)"; }
+      return;
     }
+    if (!truckNumber) {
+      showToast("Truck # is required before printing.", "error");
+      const ti = document.getElementById("truck-number");
+      if (ti) { ti.focus(); ti.style.borderColor = "var(--rd)"; ti.style.boxShadow = "0 0 0 2px rgba(184,53,53,.15)"; }
+      return;
+    }
+
     const totals = arr.map(function (c) { return CalcCore.calcTotal(c); });
     const result = PrintTrace.recordAndPrint(arr, totals, {
       dispatcher: dispatcher,
+      truck_number: truckNumber,
       period_days: global._currentPeriod || "all",
       fuel_snapshot_date: global._fuelSnapshotDate || null,
     });

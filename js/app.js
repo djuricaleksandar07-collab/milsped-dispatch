@@ -125,6 +125,14 @@
       });
     }
 
+    const truckInput = document.getElementById("truck-number");
+    if (truckInput) {
+      truckInput.value = localStorage.getItem("truck_number") || "";
+      truckInput.addEventListener("change", function (e) {
+        localStorage.setItem("truck_number", e.target.value);
+      });
+    }
+
   } catch (err) {
     setText("Error: " + err.message);
     console.error(err);
