@@ -157,7 +157,18 @@
 <!-- Skripte — ucitavaju se redom -->
 <!-- Inline data bundle - omogucava otvaranje bez Pythona/HTTP servera.
      Ako bundle.js ne postoji, app.js ce fallback-ovati na fetch(). -->
-<script src="data/bundle.js" onerror="console.log('bundle.js not found - using fetch fallback')"></script>
+<!-- Cache-bust: hourly version bumps force browser to re-download bundle.js each hour.
+     Real deploys still rely on Pages CDN refresh (usually within 60s after push). -->
+<script>
+(function(){
+  var d = new Date();
+  var v = d.getUTCFullYear() + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0') + String(d.getUTCHours()).padStart(2,'0');
+  var s = document.createElement('script');
+  s.src = 'data/bundle.js?v=' + v;
+  s.onerror = function(){ console.log('bundle.js not found - using fetch fallback'); };
+  document.currentScript.parentNode.insertBefore(s, document.currentScript);
+})();
+</script>
 
 <script src="js/zip-distance.js"></script>
 <script src="js/calc-core.js"></script>
