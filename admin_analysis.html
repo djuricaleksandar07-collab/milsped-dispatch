@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Milsped — Admin Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0b1220; --panel:#131c2e; --panel2:#0f1826; --bd:#22304a; --bd2:#2c3d5a;
+  --tx:#e8eef7; --mu:#8aa0bb; --tl:#1f9080; --tl2:#37c7ae; --rd:#f2695f; --am:#f0b429; --gn:#2fbf71;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:'DM Sans',system-ui,sans-serif;font-size:13px}
+.wrap{max-width:1280px;margin:0 auto;padding:18px 20px 60px}
+h1{font-size:22px;font-weight:700;margin:0}
+h2{font-size:14px;font-weight:600;margin:26px 0 10px;color:var(--tx);letter-spacing:.2px}
+.sub{color:var(--mu);font-size:12px}
+header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--bd);padding-bottom:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:16px}
+.kpi{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:12px 14px}
+.kpi .l{color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.kpi .v{font-size:22px;font-weight:600;margin-top:3px;font-family:'DM Mono',monospace}
+.kpi .v.small{font-size:17px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:12px;padding:14px 16px}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--bd)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mu);font-weight:500;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--panel)}
+th:hover{color:var(--tx)}
+tbody tr:hover{background:var(--panel2)}
+.mono{font-family:'DM Mono',monospace}
+.pos{color:var(--gn)} .neg{color:var(--rd)} .warn{color:var(--am)}
+.scroll{max-height:420px;overflow:auto;border:1px solid var(--bd);border-radius:8px}
+.tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--panel2);border:1px solid var(--bd2)}
+.bar{height:8px;border-radius:4px;background:var(--tl);display:inline-block;vertical-align:middle}
+.health{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.h-item{background:var(--panel2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+.h-item .n{font-size:20px;font-weight:600;font-family:'DM Mono',monospace}
+.h-item .d{color:var(--mu);font-size:11px;margin-top:2px}
+.pill{font-size:11px;padding:1px 7px;border-radius:6px;border:1px solid var(--bd2)}
+.err{background:#2a1416;border:1px solid #5a2a2a;color:#f6b0a8;padding:14px 16px;border-radius:10px;margin-top:16px}
+canvas{max-height:260px}
+.note{color:var(--mu);font-size:11px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Milsped — Admin Analysis</h1>
+      <div class="sub" id="subhead">Loading…</div>
+    </div>
+    <div style="text-align:right">
+      <div class="tag" id="scope">whole fleet</div>
+      <div class="sub" style="margin-top:6px"><a href="dispatch_calculator.html" style="color:var(--tl2);text-decoration:none">→ Dispatcher Calculator</a></div>
+    </div>
+  </header>
+
+  <div id="app"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Data as a <script> bundle so the page also works opened directly (file://).
+     If missing, boot() falls back to fetch("data/admin_data.json"). -->
+<script src="data/admin_data.js"></script>
+<script>
+const $=(s,r=document)=>r.querySelector(s);
+const fmtUSD=n=>"$"+Math.round(n).toLocaleString();
+const fmtK=n=>Math.abs(n)>=1e6?"$"+(n/1e6).toFixed(2)+"M":Math.abs(n)>=1e3?"$"+(n/1e3).toFixed(0)+"k":"$"+Math.round(n);
+const pct=n=>(n*100).toFixed(1)+"%";
+const cmClass=v=>v>0?"pos":v<0?"neg":"";
+
+async function boot(){
+  let d = window.__ADMIN__ || null;
+  if(!d){
+    try{
+      const r=await fetch("data/admin_data.json",{cache:"no-store"});
+      if(!r.ok) throw new Error(r.status);
+      d=await r.json();
+    }catch(e){
+      $("#app").innerHTML='<div class="err"><b>Ne mogu da učitam podatke.</b><br>'+
+        'Pokreni <span class="mono">build_masterbase.py</span> pa <span class="mono">build_app_data.py</span> '+
+        '(generišu data/admin_data.js). Greška: '+e.message+'</div>';
+      return;
+    }
+  }
+  render(d);
+}
+
+function render(d){
+  const t=d.fleet_totals||{}, v=d.validation||{};
+  $("#subhead").textContent=`ref ${d.reference_date} · ${d.date_min}→${d.date_max} · ${(d.n_loads||0).toLocaleString()} loads`;
+  const cmpct=t.gross?t.cm/t.gross:0;
+  const app=$("#app");
+
+  // KPIs
+  const kpis=[
+    ["Revenue (gross)",fmtK(t.gross||0)],
+    ["Contribution Margin",fmtK(t.cm||0)],
+    ["CM %",pct(cmpct)],
+    ["Loads",(d.n_loads||0).toLocaleString()],
+    ["Miles",(t.miles||0).toLocaleString()],
+    ["CM / mi","$"+(t.miles?(t.cm/t.miles):0).toFixed(3)],
+    ["Driver pay",fmtK(t.pay||0)],
+    ["Fuel",fmtK(t.fuel||0)],
+  ];
+  let html='<div class="kpis">'+kpis.map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v ${k[1].length>7?'small':''}">${k[1]}</div></div>`).join("")+'</div>';
+
+  // Monthly trend + Type/Team charts
+  html+='<div class="grid2"><div class="card"><h3>Monthly revenue & contribution margin</h3><canvas id="cMonthly"></canvas></div>'+
+        '<div class="card"><h3>CM % by Team</h3><canvas id="cTeam"></canvas></div></div>';
+
+  // Region profitability
+  html+='<h2>Region profitability</h2>';
+  if(d.region_lane && Object.keys(d.region_lane).length){
+    html+=table(d.region_lane,"Region lane");
+  }else{
+    html+='<div class="card note">Region kolone su prazne u ovom fajlu (region mapping nije bio dostupan pri generisanju). '+
+          'Pokreni <span class="mono">build_masterbase.py</span> lokalno (gde je US Regions mapping sinhronizovan) i region profitability će se popuniti automatski.</div>';
+  }
+
+  // Profitability by Type & Team tables
+  html+='<div class="grid2"><div class="card"><h3>By truck Type</h3>'+table(d.by_type,"Type",false)+'</div>'+
+        '<div class="card"><h3>By Team</h3>'+table(d.by_team,"Team",false)+'</div></div>';
+
+  // State lanes + brokers
+  html+='<h2>Top state lanes <span class="note">(by revenue · click headers to sort)</span></h2>'+
+        '<div class="scroll">'+table(d.state_lane,"State lane",true,true)+'</div>';
+  html+='<h2>Top brokers / customers</h2><div class="scroll">'+table(d.brokers,"Broker / Customer",true,true)+'</div>';
+
+  // Data health
+  html+='<h2>Data health & validation</h2><div class="health">'+
+    hItem(v.rows,"rows total","")+
+    hItem(v.neg_cm,"loads with negative CM", v.neg_cm/ (d.n_loads||1)>0.15?"warn":"")+
+    hItem((v.fuel_zero_pct||0)+"%","load-days without fuel record",(v.fuel_zero_pct>50?"warn":""))+
+    hItem((v.tolls_zero_pct||0)+"%","load-days without tolls","")+
+    hItem(v.zero_miles,"zero-mile loads",v.zero_miles>0?"warn":"")+
+    hItem(v.null_truck,"missing truck #",v.null_truck>0?"warn":"")+
+    hItem(v.no_team,"missing team",v.no_team>0?"warn":"")+
+    hItem(v.dup_trip,"duplicate Trip #",v.dup_trip>0?"warn":"")+
+    '</div>';
+  html+='<div class="note" style="margin-top:10px">Napomena: negativan CM na pojedinačnom loadu je delom posledica lumpiness-a goriva/tolls (beleže se na dan kupovine, ne po loadu). Na nivou lane/region/period sume su tačne.</div>';
+
+  app.innerHTML=html;
+  drawCharts(d);
+  wireSort();
+}
+
+function table(obj,label,showBar=false,rankByGross=false){
+  let rows=Object.entries(obj||{}).map(([k,x])=>({k,...x}));
+  if(rankByGross) rows.sort((a,b)=>b.gross-a.gross);
+  const maxg=Math.max(1,...rows.map(r=>r.gross));
+  let h='<table data-sort><thead><tr>'+
+    `<th data-c="k">${label}</th><th data-c="n">Loads</th><th data-c="gross">Revenue</th>`+
+    `<th data-c="cm">CM</th><th data-c="cm_pct">CM %</th><th data-c="cm_pm">CM/mi</th></tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr><td>${r.k}${showBar?` <span class="bar" style="width:${Math.max(2,60*r.gross/maxg)}px"></span>`:""}</td>`+
+       `<td class="mono">${(r.n||0).toLocaleString()}</td>`+
+       `<td class="mono">${fmtK(r.gross||0)}</td>`+
+       `<td class="mono ${cmClass(r.cm)}">${fmtK(r.cm||0)}</td>`+
+       `<td class="mono ${cmClass(r.cm_pct)}">${pct(r.cm_pct||0)}</td>`+
+       `<td class="mono ${cmClass(r.cm_pm)}">$${(r.cm_pm||0).toFixed(3)}</td></tr>`;
+  }
+  return h+'</tbody></table>';
+}
+function hItem(n,d,cls){return `<div class="h-item"><div class="n ${cls}">${typeof n==="number"?n.toLocaleString():n}</div><div class="d">${d}</div></div>`;}
+
+function wireSort(){
+  document.querySelectorAll("table[data-sort]").forEach(tb=>{
+    tb.querySelectorAll("th").forEach((th,i)=>{
+      th.addEventListener("click",()=>{
+        const tbody=tb.querySelector("tbody");
+        const rows=[...tbody.querySelectorAll("tr")];
+        const asc=th._asc=!th._asc;
+        rows.sort((a,b)=>{
+          let x=a.children[i].textContent.replace(/[$,%kM]/g,""),y=b.children[i].textContent.replace(/[$,%kM]/g,"");
+          const nx=parseFloat(x),ny=parseFloat(y);
+          if(!isNaN(nx)&&!isNaN(ny))return asc?nx-ny:ny-nx;
+          return asc?x.localeCompare(y):y.localeCompare(x);
+        });
+        rows.forEach(r=>tbody.appendChild(r));
+      });
+    });
+  });
+}
+
+function drawCharts(d){
+  if(typeof Chart==="undefined")return;
+  Chart.defaults.color="#8aa0bb"; Chart.defaults.borderColor="#22304a"; Chart.defaults.font.family="DM Sans";
+  const mk=Object.keys(d.monthly||{}).sort();
+  new Chart($("#cMonthly"),{data:{labels:mk,datasets:[
+    {type:"bar",label:"Revenue",data:mk.map(m=>d.monthly[m].gross),backgroundColor:"#1f9080"},
+    {type:"line",label:"CM",data:mk.map(m=>d.monthly[m].cm),borderColor:"#f0b429",backgroundColor:"#f0b429",tension:.3,yAxisID:"y"}
+  ]},options:{responsive:true,plugins:{legend:{labels:{boxWidth:12}}},scales:{y:{ticks:{callback:v=>"$"+(v/1e6).toFixed(1)+"M"}}}}});
+
+  const teams=Object.entries(d.by_team||{}).sort((a,b)=>b[1].gross-a[1].gross);
+  new Chart($("#cTeam"),{type:"bar",data:{labels:teams.map(t=>t[0]),datasets:[
+    {label:"CM %",data:teams.map(t=>+(t[1].cm_pct*100).toFixed(1)),backgroundColor:teams.map(t=>t[1].cm_pct>=0?"#2fbf71":"#f2695f")}
+  ]},options:{indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>v+"%"}}}}});
+}
+
+boot();
+</script>
+</body>
+</html>

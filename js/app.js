@@ -7,28 +7,52 @@
   function setText(s) { if (overlayText) overlayText.textContent = s; }
   function hideOverlay() { if (overlay) overlay.classList.add("hide"); }
 
-  async function fetchJson(url) {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) throw new Error("Failed to load " + url + ": " + res.status);
-    return res.json();
+  async function fetchJson(url, tries) {
+    // Retry na prolazne mrezne greske (npr. za vreme GitHub Pages deploy-a),
+    // da jedan neuspeh ne obori ceo app sa "Failed to fetch".
+    tries = tries || 3;
+    let lastErr;
+    for (let i = 0; i < tries; i++) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to load " + url + ": " + res.status);
+        return await res.json();
+      } catch (e) {
+        lastErr = e;
+        if (i < tries - 1) await new Promise(function (r) { setTimeout(r, 400 * (i + 1)); });
+      }
+    }
+    throw lastErr;
   }
 
   try {
     // PRISTUP 1: ako je bundle.js učitan (script tag), koristi window.__BUNDLE__
     // — radi i pri otvaranju preko file:// protokola (bez HTTP servera/Pythona).
     // PRISTUP 2: fallback na fetch() — radi kada se učitava preko HTTP servera.
+    // Bundle.js se učitava ASINHRONO — sačekaj da završi (ili padne) pre nego
+    // što odlučiš bundle vs fetch. Bez ovoga app.js krene prerano, ne vidi
+    // window.__BUNDLE__ i nepotrebno ide na fetch() (uzrok "Failed to fetch").
+    if (window.__BUNDLE_READY__ && typeof window.__BUNDLE_READY__.then === "function") {
+      setText("Loading bundled data...");
+      try { await window.__BUNDLE_READY__; } catch (e) { /* pusti fallback */ }
+    }
     const B = window.__BUNDLE__;
     let lanesWrap, zips, pilots, fuelPrices;
+
+    // Lane/fleet aggregates now come from the LOAD-LEVEL pipeline (calc_data.json,
+    // built by build_masterbase.py + build_app_data.py). This also powers the
+    // per-load "N trips" breakdown (data/calc_detail.json, lazy-loaded on click).
+    setText("Loading load-level lane data...");
+    lanesWrap = window.__CALC__ || await fetchJson("data/calc_data.json");
+    window._calcData = lanesWrap;
+
+    // ZIP centroids, Pilot stations and fuel prices still come from the bundle
+    // (or fetch fallback) — unchanged.
     if (B) {
-      setText("Loading bundled data...");
-      lanesWrap   = B.lanes;
       zips        = B.zip_centroids;
       pilots      = B.pilot_stations;
       fuelPrices  = B.fuel_prices;
     } else {
-      setText("Loading historical lane data...");
-      lanesWrap = await fetchJson("data/lanes.json");
-
       setText("Loading ZIP database (~42k zips)...");
       zips = await fetchJson("data/zip_centroids.json");
 

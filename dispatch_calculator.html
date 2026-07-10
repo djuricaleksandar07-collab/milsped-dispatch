@@ -81,6 +81,7 @@
         <span class="period-lbl">Period</span>
         <div class="period-toggle" id="period-toggle">
           <button data-period="30">30d</button>
+          <button data-period="60">60d</button>
           <button data-period="90" class="on">90d</button>
           <button data-period="180">180d</button>
           <button data-period="365">365d</button>
@@ -165,7 +166,14 @@
   var v = d.getUTCFullYear() + String(d.getUTCMonth()+1).padStart(2,'0') + String(d.getUTCDate()).padStart(2,'0') + String(d.getUTCHours()).padStart(2,'0');
   var s = document.createElement('script');
   s.src = 'data/bundle.js?v=' + v;
-  s.onerror = function(){ console.log('bundle.js not found - using fetch fallback'); };
+  // Dinamicki ubaceni <script> je ASINHRON po defaultu, pa app.js krene pre
+  // nego sto se 5 MB bundle.js ucita -> window.__BUNDLE__ jos ne postoji ->
+  // app.js pogresno ide na fetch() fallback (uzrok "Failed to fetch").
+  // Zato izlazemo Promise koji app.js ceka pre nego sto odluci bundle vs fetch.
+  window.__BUNDLE_READY__ = new Promise(function(resolve){
+    s.onload  = function(){ resolve(true); };
+    s.onerror = function(){ console.log('bundle.js not found - using fetch fallback'); resolve(false); };
+  });
   document.currentScript.parentNode.insertBefore(s, document.currentScript);
 })();
 </script>
@@ -177,6 +185,10 @@
 <script src="js/print-trace.js"></script>
 <script src="js/calc-ui.js"></script>
 <script src="js/calc-ui-card.js"></script>
+<script src="js/breakdown.js"></script>
+<!-- Load-level lane data as a <script> bundle (works over file:// too).
+     If missing, app.js falls back to fetch("data/calc_data.json"). -->
+<script src="data/calc_data.js"></script>
 <script src="js/app.js"></script>
 
 </body>

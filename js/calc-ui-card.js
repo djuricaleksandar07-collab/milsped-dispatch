@@ -199,7 +199,7 @@
         '<span class="bot">' + secondary + '</span>' +
         '<span class="bot" style="color:var(--mu2)">RPM $' + r.rpm.toFixed(3) + ' · avg ' + Math.round(r.avg_mi) + ' mi</span>' +
         '</span>' +
-        '<span class="lane-rec-trips">' + r.n_trips + ' trips</span>' +
+        '<span class="lane-rec-trips" title="Prikaži stvarne loadove (broker, tim, vozač…)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" onclick="LoadBreakdown.show(\'' + r.pu + ' - ' + r.del + '\')">' + r.n_trips + ' trips &#9662;</span>' +
         '<button class="lane-rec-add-btn" onclick="CalcUI.addLegFromRec(' + c.id + ",'" + r.del + "'" + ')">+ Add</button>' +
         '</div>';
     }).join("");
