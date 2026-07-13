@@ -73,7 +73,11 @@
       if (typeof v.lat === "number" && typeof v.lon === "number") pilotsNorm[k] = v;
     }
 
-    const defaultPeriod = (lanesWrap.metadata && lanesWrap.metadata.default_period) || "90";
+    // Default period is controlled from the HTML: whichever .period-toggle button
+    // has class "on" wins (fallback: metadata default_period, then "90").
+    const onBtn = document.querySelector(".period-toggle button.on");
+    const htmlDefault = onBtn ? onBtn.getAttribute("data-period") : null;
+    const defaultPeriod = htmlDefault || (lanesWrap.metadata && lanesWrap.metadata.default_period) || "90";
     const period = lanesWrap.fleet[defaultPeriod] ? defaultPeriod : "all";
     const fleet = lanesWrap.fleet[period];
     const lanes = lanesWrap.lanes[period];
