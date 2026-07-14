@@ -107,10 +107,66 @@
     return lanesObj[puState + " - " + delState] || null;
   }
 
+  /** ZIP/CITY-level recommendation: best next destination states FROM a specific
+   *  origin city, computed from the per-load detail (window.__CALC_DETAIL__).
+   *  Returns null if detail isn't loaded yet or there isn't enough city history,
+   *  so the caller can fall back to the STATE-level recommendNext().
+   */
+  function recommendFromCity(city, state, opts) {
+    opts = opts || {};
+    const D = (typeof window !== "undefined") && window.__CALC_DETAIL__;
+    if (!D || !D.detail || !city || !state) return null;
+    const ci = {};
+    (D.detail_cols || []).forEach(function (c, i) { ci[c] = i; });
+    const days = { "30": 30, "60": 60, "90": 90, "180": 180, "365": 365, "all": -1 }[opts.period || "all"];
+    let cut = null;
+    if (days > 0 && D.reference_date) { cut = new Date(D.reference_date + "T00:00:00"); cut.setDate(cut.getDate() - days); }
+    const cityLc = String(city).toLowerCase();
+    const st = String(state).toUpperCase();
+    const prefix = st + " - ";
+    const byDest = {};
+    for (const laneKey in D.detail) {
+      if (laneKey.indexOf(prefix) !== 0) continue;         // origin state matches
+      const rows = D.detail[laneKey];
+      for (let j = 0; j < rows.length; j++) {
+        const r = rows[j];
+        if (String(r[ci.oState]).toUpperCase() !== st) continue;
+        if (String(r[ci.oCity]).toLowerCase() !== cityLc) continue;
+        if (cut && new Date(r[ci.date] + "T00:00:00") < cut) continue;
+        const d = r[ci.dState];
+        const g = byDest[d] || (byDest[d] = { n: 0, mi: 0, gross: 0, cm: 0 });
+        g.n++; g.mi += r[ci.miles] || 0; g.gross += r[ci.gross] || 0; g.cm += r[ci.cm] || 0;
+      }
+    }
+    const minTrips = opts.minTrips || 3;
+    const fleetCmPm = opts.fleetCmPm || 0.8;
+    const arr = [];
+    for (const d in byDest) {
+      const x = byDest[d];
+      if (x.n < minTrips || x.mi <= 0) continue;
+      const cm_pm = x.cm / x.mi;
+      const adj = _adjustedCmPm({ n_trips: x.n, cm_pm: cm_pm }, fleetCmPm);
+      const avg_mi = x.mi / x.n;
+      arr.push({
+        pu: st, del: d, n_trips: x.n, cm_pm: cm_pm, cm_pm_adj: adj,
+        rpm: x.gross / x.mi, avg_mi: avg_mi, expected_cm: adj * avg_mi, cm_pt: adj * avg_mi,
+        _fromCity: city, _fromState: st,
+      });
+    }
+    const sortBy = opts.sortBy || "cm_pm";
+    arr.sort(function (a, b) {
+      if (sortBy === "cm_pt") return b.expected_cm - a.expected_cm;
+      if (sortBy === "rpm") return b.rpm - a.rpm;
+      return b.cm_pm_adj - a.cm_pm_adj;
+    });
+    return arr.slice(0, opts.topN || 3);
+  }
+
   global.LaneRecommender = {
     recommendNext,
     recommendForPair,
     bestLanesOverall,
+    recommendFromCity,
     _adjustedCmPm,
   };
 

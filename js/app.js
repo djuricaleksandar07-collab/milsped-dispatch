@@ -107,6 +107,14 @@
     setText("Ready.");
     setTimeout(hideOverlay, 200);
 
+    // Background-preload per-load detail so ZIP/city-level recommendations (from
+    // the first pickup) and the load breakdown are ready when the dispatcher types.
+    if (window.LoadBreakdown && LoadBreakdown._preload) {
+      LoadBreakdown._preload()
+        .then(function () { if (window.CalcUI && CalcUI.render) CalcUI.render(); })
+        .catch(function () {});
+    }
+
     document.querySelectorAll(".period-toggle button").forEach(function (btn) {
       const p = btn.getAttribute("data-period");
       btn.classList.toggle("on", p === period);

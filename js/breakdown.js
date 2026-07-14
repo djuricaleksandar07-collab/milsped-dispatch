@@ -24,7 +24,7 @@
       s.onerror = function () {
         fetch("data/calc_detail.json", { cache: "no-store" })
           .then(function (r) { if (!r.ok) throw new Error("calc_detail.json " + r.status); return r.json(); })
-          .then(function (j) { _data = j; resolve(j); })
+          .then(function (j) { _data = j; global.__CALC_DETAIL__ = j; resolve(j); })
           .catch(reject);
       };
       document.head.appendChild(s);
@@ -166,5 +166,30 @@
     document.head.appendChild(s);
   }
 
-  global.LoadBreakdown = { show: show, close: close, _preload: loadDetail };
+  // Breakdown for a specific ORIGIN CITY -> destination state (zip/city-level rec).
+  function showFrom(city, state, dest) {
+    var period = global._currentPeriod || "90";
+    var st = String(state).toUpperCase();
+    var laneKey = st + " - " + dest;
+    var label = city + ", " + st + "  →  " + dest;
+    openModal(label, period, '<div class="lb-loading">Loading loads…</div>');
+    loadDetail().then(function (data) {
+      var ci = {}; (data.detail_cols || []).forEach(function (c, i) { ci[c] = i; });
+      var rows = (data.detail[laneKey] || []).filter(function (r) {
+        return String(r[ci.oState]).toUpperCase() === st &&
+               String(r[ci.oCity]).toLowerCase() === String(city).toLowerCase();
+      });
+      var days = DAYS[period];
+      if (days > 0) {
+        var cut = cutoffDate(data.reference_date, days);
+        rows = rows.filter(function (r) { return new Date(r[ci.date] + "T00:00:00") >= cut; });
+      }
+      rows.sort(function (a, b) { return (b[ci.cm] || 0) - (a[ci.cm] || 0); });
+      renderTable(label, period, rows, data.detail_cols, data.reference_date);
+    }).catch(function (e) {
+      setBody('<div class="lb-loading" style="color:#f2695f">Ne mogu da učitam detalje: ' + esc(e.message) + '</div>');
+    });
+  }
+
+  global.LoadBreakdown = { show: show, showFrom: showFrom, close: close, _preload: loadDetail };
 })(typeof window !== "undefined" ? window : this);

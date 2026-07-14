@@ -157,10 +157,10 @@
     render();
   }
 
+  function jsq(s) { return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/'/g, "\\'"); }
+
   function renderLaneRec(c) {
     if (!global.LaneRecommender) return "";
-    const lastLeg = c.legs[c.legs.length - 1];
-    if (!lastLeg || !lastLeg.del_state) return "";
     const lanesWrap = global._lanesWrap;
     if (!lanesWrap) return "";
     const period = global._currentPeriod || "90";
@@ -168,18 +168,46 @@
     const fleet = lanesWrap.fleet[period];
     if (!lanesObj) return "";
     const sortBy = I.state.metric || "cm_pt";  // sortira po izabranoj metrici (CM/turi default)
-    const recs = LaneRecommender.recommendNext(lastLeg.del_state, {
-      lanesObj: lanesObj, fleet: fleet, topN: 3, minTrips: 3, sortBy: sortBy,
-    });
     const metricLbl = sortBy === "cm_pt" ? "CM/load" : sortBy === "cm_day" ? "CM/day" : "CM/mi";
-    if (!recs.length) {
-      return '<div class="lane-rec"><div class="lane-rec-hdr">' +
-        '<span class="lane-rec-title">Top 3 next legs from ' + lastLeg.del_state + '</span>' +
-        '<span class="lane-rec-meta">period ' + period + ' · sort: ' + metricLbl + '</span></div>' +
-        '<div class="lane-rec-empty">Not enough history for ' + lastLeg.del_state + ' in selected period.</div></div>';
+
+    // Origin = last delivery if it exists; otherwise the FIRST pickup — tako se
+    // predlog pojavljuje čim se unese prvi utovar (zahtev dispatch tima).
+    const lastLeg = c.legs[c.legs.length - 1];
+    let oState, oCity, basis;
+    if (lastLeg && lastLeg.del_state) {
+      oState = lastLeg.del_state; oCity = lastLeg.del_city; basis = "next";
+    } else if (c.legs[0] && c.legs[0].pu_state) {
+      oState = c.legs[0].pu_state; oCity = c.legs[0].pu_city; basis = "pickup";
+    } else {
+      return "";
     }
+
+    // Prefer ZIP/city-level (iz load detail-a) ako ima dovoljno istorije za taj
+    // konkretan grad; u suprotnom fallback na STATE nivo.
+    let recs = null, level = "state", fromLabel = oState;
+    const fleetCmPm = (fleet && fleet.cm_pm) || 0.8;
+    if (oCity && LaneRecommender.recommendFromCity) {
+      const cr = LaneRecommender.recommendFromCity(oCity, oState, {
+        period: period, topN: 3, minTrips: 3, sortBy: sortBy, fleetCmPm: fleetCmPm,
+      });
+      if (cr && cr.length >= 2) { recs = cr; level = "zip"; fromLabel = oCity + ", " + oState; }
+    }
+    if (!recs) {
+      recs = LaneRecommender.recommendNext(oState, { lanesObj: lanesObj, fleet: fleet, topN: 3, minTrips: 3, sortBy: sortBy });
+    }
+
+    const levelTag = level === "zip" ? "zip/lokal nivo" : "state nivo";
+    const titleTxt = (basis === "pickup" ? "Najbolji sledeći leg iz " : "Top 3 next legs from ") + fromLabel;
+    const hdr = '<div class="lane-rec-hdr">' +
+      '<span class="lane-rec-title">' + titleTxt + '</span>' +
+      '<span class="lane-rec-meta">' + levelTag + ' · period ' + period + ' · sort: ' + metricLbl + '</span></div>';
+
+    if (!recs.length) {
+      return '<div class="lane-rec">' + hdr +
+        '<div class="lane-rec-empty">Nema dovoljno istorije za ' + fromLabel + ' u izabranom periodu.</div></div>';
+    }
+
     const items = recs.map(function (r, i) {
-      // Glavna brojka (po sortBy), sekundarna ispod
       let primary, secondary;
       const cmDay = (r.cm_pm_adj || 0) * 400;
       if (sortBy === "cm_pt") {
@@ -192,6 +220,9 @@
         primary = '$' + r.cm_pm_adj.toFixed(4) + '/mi';
         secondary = '$' + Math.round(r.expected_cm).toLocaleString() + '/load · $' + Math.round(cmDay).toLocaleString() + '/day';
       }
+      const bd = r._fromCity
+        ? "LoadBreakdown.showFrom('" + jsq(r._fromCity) + "','" + jsq(r._fromState) + "','" + jsq(r.del) + "')"
+        : "LoadBreakdown.show('" + jsq(r.pu + ' - ' + r.del) + "')";
       return '<div class="lane-rec-item' + (i === 0 ? " best" : "") + '">' +
         '<span class="lane-rec-pair">' + r.pu + ' &rarr; ' + r.del + '</span>' +
         '<span class="lane-rec-metrics">' +
@@ -199,14 +230,11 @@
         '<span class="bot">' + secondary + '</span>' +
         '<span class="bot" style="color:var(--mu2)">RPM $' + r.rpm.toFixed(3) + ' · avg ' + Math.round(r.avg_mi) + ' mi</span>' +
         '</span>' +
-        '<span class="lane-rec-trips" title="Prikaži stvarne loadove (broker, tim, vozač…)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" onclick="LoadBreakdown.show(\'' + r.pu + ' - ' + r.del + '\')">' + r.n_trips + ' trips &#9662;</span>' +
-        '<button class="lane-rec-add-btn" onclick="CalcUI.addLegFromRec(' + c.id + ",'" + r.del + "'" + ')">+ Add</button>' +
+        '<span class="lane-rec-trips" title="Prikaži stvarne loadove (broker, tim, vozač…)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px" onclick="' + bd + '">' + r.n_trips + ' trips &#9662;</span>' +
+        '<button class="lane-rec-add-btn" onclick="CalcUI.addLegFromRec(' + c.id + ",'" + jsq(r.del) + "'" + ')">+ Add</button>' +
         '</div>';
     }).join("");
-    return '<div class="lane-rec"><div class="lane-rec-hdr">' +
-      '<span class="lane-rec-title">Top 3 next legs from ' + lastLeg.del_state + '</span>' +
-      '<span class="lane-rec-meta">period ' + period + ' · sort: ' + metricLbl + '</span></div>' +
-      '<div class="lane-rec-list">' + items + '</div></div>';
+    return '<div class="lane-rec">' + hdr + '<div class="lane-rec-list">' + items + '</div></div>';
   }
 
   function addLegFromRec(cId, delState) {
