@@ -12,7 +12,15 @@
     const sug = document.getElementById("zip-sug-" + cId + "-" + lId + "-" + side);
     if (!sug) return;
     const v = String(value || "").trim();
-    if (v.length < 2) { sug.classList.remove("show"); sug.innerHTML = ""; return; }
+    if (v.length < 2) {
+      // Empty DELIVERY field: prvo prikaži predlog destinacija iz utovara ovog lega
+      // (zip/city nivo ako ima podataka, u suprotnom state). ZIP se i dalje može ukucati.
+      if (side === "del") {
+        const rec = renderRecDropdown(cId, lId);
+        if (rec) { sug.innerHTML = rec; sug.classList.add("show"); I.setActiveAutocomplete({ cId: cId, lId: lId, side: side }); return; }
+      }
+      sug.classList.remove("show"); sug.innerHTML = ""; return;
+    }
     const results = ZipDistance.search(v, 8);
     if (!results.length) { sug.classList.remove("show"); sug.innerHTML = ""; return; }
     sug.innerHTML = results.map(function (r, i) {
@@ -250,6 +258,59 @@
     render();
   }
 
+  function esch(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // Recommendation list rendered INSIDE the delivery ZIP dropdown (on focus).
+  // Origin = this leg's pickup. Prefers zip/city level, falls back to state.
+  function renderRecDropdown(cId, lId) {
+    if (!global.LaneRecommender) return "";
+    const c = I.getCalcs().find(function (x) { return x.id === cId; }); if (!c) return "";
+    const l = c.legs.find(function (x) { return x.id === lId; }); if (!l) return "";
+    const lanesWrap = global._lanesWrap; if (!lanesWrap) return "";
+    const period = global._currentPeriod || "90";
+    const lanesObj = lanesWrap.lanes[period]; const fleet = lanesWrap.fleet[period];
+    if (!lanesObj) return "";
+    const oState = l.pu_state, oCity = l.pu_city;
+    if (!oState) return "";
+    const sortBy = I.state.metric || "cm_pt";
+    const fleetCmPm = (fleet && fleet.cm_pm) || 0.8;
+    let recs = null, level = "state", fromLabel = oState;
+    if (oCity && LaneRecommender.recommendFromCity) {
+      const cr = LaneRecommender.recommendFromCity(oCity, oState, { period: period, topN: 5, minTrips: 3, sortBy: sortBy, fleetCmPm: fleetCmPm });
+      if (cr && cr.length >= 2) { recs = cr; level = "zip"; fromLabel = oCity + ", " + oState; }
+    }
+    if (!recs) recs = LaneRecommender.recommendNext(oState, { lanesObj: lanesObj, fleet: fleet, topN: 5, minTrips: 3, sortBy: sortBy });
+    if (!recs || !recs.length) return "";
+    const levelTag = level === "zip" ? "zip/lokal" : "state";
+    let html = '<div class="rec-sug-head" style="padding:5px 10px;font-size:11px;font-weight:600;opacity:.8">Predlog iz ' + esch(fromLabel) + ' · ' + levelTag +
+      ' <span style="opacity:.75;font-weight:400">— klikni ili ukucaj ZIP</span></div>';
+    html += recs.map(function (r) {
+      const cmpm = (r.cm_pm_adj != null ? r.cm_pm_adj : 0);
+      const bd = r._fromCity
+        ? "event.stopPropagation();LoadBreakdown.showFrom('" + jsq(r._fromCity) + "','" + jsq(r._fromState) + "','" + jsq(r.del) + "')"
+        : "event.stopPropagation();LoadBreakdown.show('" + jsq(r.pu + ' - ' + r.del) + "')";
+      return '<div class="zip-sug-item rec-sug" onclick="CalcUI.pickRecDest(' + cId + ',' + lId + ",'" + jsq(r.del) + "')\">" +
+        '<span class="zip-sug-zip">&rarr; ' + esch(r.del) + '</span>' +
+        '<span class="zip-sug-city">$' + cmpm.toFixed(3) + '/mi · $' + Math.round(r.expected_cm).toLocaleString() + '/load · RPM $' + r.rpm.toFixed(2) + '</span>' +
+        '<span class="zip-sug-st" title="Prikaži loadove" style="cursor:pointer;text-decoration:underline" onclick="' + bd + '">' + r.n_trips + ' &#9662;</span>' +
+        '</div>';
+    }).join("");
+    return html;
+  }
+
+  // Pick a recommended destination for THIS leg (sets del state; ZIP ostaje prazan).
+  function pickRecDest(cId, lId, delState) {
+    const c = I.getCalcs().find(function (x) { return x.id === cId; }); if (!c) return;
+    const l = c.legs.find(function (x) { return x.id === lId; }); if (!l) return;
+    l.del_state = delState; l.del_city = ""; l.del_zip = "";
+    CalcCore.fillLegFromHist(l);
+    const idx = c.legs.indexOf(l);
+    if (idx < c.legs.length - 1) { c.legs[idx + 1].pu_state = delState; c.legs[idx + 1].pu_city = ""; c.legs[idx + 1].pu_zip = ""; }
+    closeAutocomplete();
+    showToast("Predlog: " + (l.pu_state || "?") + " → " + delState, "success");
+    render();
+  }
+
   function rendCard(c, rankMap) {
     const tot = CalcCore.calcTotal(c);
     const rank = rankMap[c.id] || 0;
@@ -483,7 +544,6 @@
       '<button class="add-leg-btn" onclick="CalcUI.addLeg(' + c.id + ')">+ Add leg</button>' +
       totalsHtml +
       commentBlock +
-      renderLaneRec(c) +
       '<button class="reset-btn" onclick="CalcUI.resetCalc(' + c.id + ')">&#8634; Reset to history</button>' +
       '</div></div>';
   }
@@ -637,7 +697,7 @@
     render: render, addCalc: addCalc, removeCalc: removeCalc, addLeg: addLeg, removeLeg: removeLeg, resetCalc: resetCalc, setMetric: setMetric,
     zipInput: zipInput, selectZip: selectZip, zipKey: zipKey, clearZip: clearZip,
     onLegMiles: onLegMiles, onLegRpm: onLegRpm, onLegGross: onLegGross, onLegField: onLegField, onLegGal: onLegGal, onLegMpg: onLegMpg,
-    applyFuelRec: applyFuelRec, addLegFromRec: addLegFromRec,
+    applyFuelRec: applyFuelRec, addLegFromRec: addLegFromRec, pickRecDest: pickRecDest,
     onCommentChange: onCommentChange,
     onSelectedToggle: onSelectedToggle,
     printAll: printAll,
